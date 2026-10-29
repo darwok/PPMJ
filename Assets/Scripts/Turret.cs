@@ -2,7 +2,7 @@ using UnityEngine;
 
 public enum CardType
 {
-    Turret1_Area,     // Daño en área (corto/medio alcance)
+    Turret1_Area,     // Daño en área (dispara proyectil grande que explota en sub-balas)
     Turret2_Rapid,    // Cadencia rápida, daño medio-bajo
     Turret3_Heavy,    // Daño alto, cadencia lenta
     NewWagon          // Acoplar un nuevo vagón al convoy
@@ -22,6 +22,15 @@ public class Turret : MonoBehaviour
 
     private float nextFireTime;
 
+    void Start()
+    {
+        // Si la torreta es Turret1_Area, asegurar que isAreaDamage esté activo automáticamente
+        if (turretType == CardType.Turret1_Area)
+        {
+            isAreaDamage = true;
+        }
+    }
+
     void Update()
     {
         EnemyFSM targetEnemy = FindNearestEnemy();
@@ -38,7 +47,7 @@ public class Turret : MonoBehaviour
         }
 
         float overchargeMult = GameManager.Instance != null ? GameManager.Instance.GetTurretFireRateMultiplier() : 1f;
-        float effectiveInterval = fireRate / overchargeMult;
+        float effectiveInterval = fireRate / Mathf.Max(0.1f, overchargeMult);
 
         if (Time.time >= nextFireTime)
         {
@@ -50,7 +59,8 @@ public class Turret : MonoBehaviour
     private EnemyFSM FindNearestEnemy()
     {
         EnemyFSM nearest = null;
-        float minDist = range;
+        float bonusRange = GameManager.Instance != null ? GameManager.Instance.globalAttackRangeBonus : 0f;
+        float minDist = range + bonusRange;
 
         foreach (EnemyFSM enemy in FindObjectsByType<EnemyFSM>(FindObjectsSortMode.None))
         {
@@ -66,33 +76,41 @@ public class Turret : MonoBehaviour
 
     private void FireAt(EnemyFSM target, Vector3 enemyCenter)
     {
-        if (isAreaDamage)
+        Transform spawn = firePoint != null ? firePoint : transform;
+        Vector3 spawnPos = spawn.position + Vector3.up * 0.35f;
+
+        // Apuntar en 3D (incluyendo la inclinación en Y hacia abajo) directo al centro del enemigo
+        Vector3 aimDir3D = (enemyCenter - spawnPos).normalized;
+        Quaternion shotRot = aimDir3D.sqrMagnitude > 0.001f ? Quaternion.LookRotation(aimDir3D) : spawn.rotation;
+
+        GameObject prefabToUse = bulletPrefab != null ? bulletPrefab : Bullet.GetOrCreateFallbackPrefab();
+
+        if (isAreaDamage || turretType == CardType.Turret1_Area)
         {
-            // Torreta 1: Daño en área alrededor del objetivo
-            Collider[] hits = Physics.OverlapSphere(enemyCenter, areaRadius, ~0, QueryTriggerInteraction.Collide);
-            foreach (Collider hit in hits)
-            {
-                EnemyFSM e = hit.GetComponentInParent<EnemyFSM>();
-                if (e != null) e.TakeDamage(damage);
-            }
-            return;
-        }
-
-        if (bulletPrefab != null)
-        {
-            Transform spawn = firePoint != null ? firePoint : transform;
-            Vector3 spawnPos = spawn.position + Vector3.up * 0.3f;
-
-            // Apuntar en 3D (incluyendo la inclinación en Y hacia abajo) directo al centro del enemigo
-            Vector3 aimDir3D = (enemyCenter - spawnPos).normalized;
-            Quaternion shotRot = aimDir3D.sqrMagnitude > 0.001f ? Quaternion.LookRotation(aimDir3D) : spawn.rotation;
-
-            Bullet.SpawnFromPool(bulletPrefab, spawnPos, shotRot, damage);
+            // Torreta 1 (Área): Dispara una bala pesada (1.8x más grande) que al impactar detona en un anillo de 8 balas en el radio de efecto
+            Bullet.SpawnFromPool(
+                prefabToUse,
+                spawnPos,
+                shotRot,
+                customDamage: damage,
+                isAreaCluster: true,
+                explosionRadius: areaRadius,
+                scaleMultiplier: 1.85f
+            );
         }
         else
         {
-            // Si no se asignó prefab de bala en el Inspector, aplicar daño directo al enemigo
-            target.TakeDamage(damage);
+            // Torreta 2 (Rápida) y Torreta 3 (Pesada)
+            float scaleMult = (turretType == CardType.Turret3_Heavy) ? 1.4f : 1.0f;
+            Bullet.SpawnFromPool(
+                prefabToUse,
+                spawnPos,
+                shotRot,
+                customDamage: damage,
+                isAreaCluster: false,
+                explosionRadius: 0f,
+                scaleMultiplier: scaleMult
+            );
         }
     }
 }

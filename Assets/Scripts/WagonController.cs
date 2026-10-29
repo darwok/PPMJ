@@ -8,6 +8,10 @@ public class WagonController : MonoBehaviour
     [SerializeField] private float maxHealth = 150f;
     [SerializeField] private float currentHealth;
 
+    [Header("Ajuste de Altura de Torretas en el Inspector")]
+    [Tooltip("Modifica este valor en el Inspector (incluso en Play Mode) para subir o bajar la altura Y de las torretas sobre el vagón")]
+    public float turretHeightOffset = 1.6f;
+
     [Header("2 Nodos de Colocación de Torretas en el Techo (Izquierdo y Derecho)")]
     public Transform[] turretSlots = new Transform[2];
     private Turret[] installedTurrets = new Turret[2];
@@ -21,7 +25,6 @@ public class WagonController : MonoBehaviour
         currentHealth = maxHealth;
         installedTurrets = new Turret[2];
 
-        // Detectar automáticamente si el objeto se llama Locomotive para evitar errores de configuración
         if (name.ToLower().Contains("locomot") || name.ToLower().Contains("ejemplo"))
         {
             isLocomotive = true;
@@ -41,7 +44,21 @@ public class WagonController : MonoBehaviour
         }
     }
 
-    // Calcula el volumen real del vagón en el mundo (incluyendo su hijo PisoVagon aunque tenga offset)
+    void Update()
+    {
+        // Mantener actualizada en tiempo real la altura de las torretas por si ajustas turretHeightOffset en el Inspector mientras juegas
+        if (installedTurrets != null && turretSlots != null)
+        {
+            for (int i = 0; i < installedTurrets.Length; i++)
+            {
+                if (installedTurrets[i] != null && turretSlots[i] != null)
+                {
+                    installedTurrets[i].transform.position = turretSlots[i].position + Vector3.up * turretHeightOffset;
+                }
+            }
+        }
+    }
+
     public Bounds GetWorldBounds()
     {
         Renderer[] renderers = GetComponentsInChildren<Renderer>();
@@ -68,7 +85,6 @@ public class WagonController : MonoBehaviour
 
     public void CreateOrRefreshRoofSlots()
     {
-        // Si este vagón es un clon de otro que ya tenía slots con torretas, limpiar primero
         TurretSlotMarker[] existingMarkers = GetComponentsInChildren<TurretSlotMarker>();
         for (int i = 0; i < existingMarkers.Length; i++)
         {
@@ -85,7 +101,6 @@ public class WagonController : MonoBehaviour
 
         for (int i = 0; i < 2; i++)
         {
-            // Crear una plataforma visual en el techo para ver claramente dónde dar clic
             GameObject padObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
             padObj.name = $"TurretSlot_{i + 1}";
             padObj.transform.position = new Vector3(xPositions[i], roofTopY, b.center.z);
@@ -93,7 +108,6 @@ public class WagonController : MonoBehaviour
             padObj.transform.localScale = new Vector3(b.size.x * 0.38f, 0.15f, b.size.z * 0.7f);
             padObj.transform.SetParent(transform, true);
 
-            // Pintar la base del nodo ligeramente más oscura para distinguir los 2 lugares en el techo
             Renderer padRenderer = padObj.GetComponent<Renderer>();
             if (padRenderer != null)
             {
@@ -103,7 +117,7 @@ public class WagonController : MonoBehaviour
             BoxCollider col = padObj.GetComponent<BoxCollider>();
             if (col != null)
             {
-                col.isTrigger = false; // Collider sólido delgado para que Physics.Raycast siempre lo detecte
+                col.isTrigger = false;
             }
 
             TurretSlotMarker marker = padObj.AddComponent<TurretSlotMarker>();
@@ -131,7 +145,7 @@ public class WagonController : MonoBehaviour
         }
 
         Transform slotTransform = turretSlots[slotIndex];
-        Vector3 spawnPos = slotTransform.position + Vector3.up * 0.5f;
+        Vector3 spawnPos = slotTransform.position + Vector3.up * turretHeightOffset;
         GameObject newTurretObj = Instantiate(turretPrefab, spawnPos, Quaternion.identity, transform);
         Turret turretComp = newTurretObj.GetComponent<Turret>();
         if (turretComp == null)
@@ -140,7 +154,7 @@ public class WagonController : MonoBehaviour
         }
         installedTurrets[slotIndex] = turretComp;
 
-        Debug.Log($"[Vagón {name}] Torreta {turretPrefab.name} colocada en el espacio {slotIndex + 1}/2.");
+        Debug.Log($"[Vagón {name}] Torreta {turretPrefab.name} colocada en el espacio {slotIndex + 1}/2 (Altura Y Offset: {turretHeightOffset}).");
         return true;
     }
 
@@ -153,9 +167,13 @@ public class WagonController : MonoBehaviour
         }
     }
 
+    public void HealWagon(float amount)
+    {
+        currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
+    }
+
     public void DestroyOrDetachWagon()
     {
-        // Destruir permanentemente todas las torretas instaladas en este vagón
         if (installedTurrets != null)
         {
             for (int i = 0; i < installedTurrets.Length; i++)
@@ -167,7 +185,6 @@ public class WagonController : MonoBehaviour
             }
         }
 
-        // Si el Player estaba sobre este vagón, reubicarlo al techo de otro vagón activo
         PlayerMove player = FindFirstObjectByType<PlayerMove>();
         if (player != null && GameManager.Instance != null)
         {

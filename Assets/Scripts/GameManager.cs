@@ -25,6 +25,12 @@ public class GameManager : MonoBehaviour
     [SerializeField] private float speedMultiplierWhenAccelerating = 1.35f;
     [SerializeField] private float turretFireRateMultiplierWhenOvercharged = 1.5f;
 
+    [Header("Perks Globales del Tren (Recompensas por Abordar Tren Enemigo)")]
+    [Tooltip("Bonificación acumulable de velocidad de ataque (+0.2, etc.)")]
+    public float globalAttackSpeedBonus = 0f;
+    [Tooltip("Bonificación acumulable de rango de ataque para las torretas")]
+    public float globalAttackRangeBonus = 0f;
+
     [Header("Nombres de Escenas")]
     [SerializeField] private string startMenuScene = "StartMenu";
     [SerializeField] private string gameScene = "GameScene";
@@ -53,7 +59,6 @@ public class GameManager : MonoBehaviour
             cardDeckManager = FindFirstObjectByType<CardDeckManager>();
         }
 
-        // Si no se asignaron vagones manualmente en el Inspector, buscarlos en la escena
         if (activeWagons.Count == 0)
         {
             activeWagons.AddRange(FindObjectsByType<WagonController>(FindObjectsSortMode.InstanceID));
@@ -73,13 +78,12 @@ public class GameManager : MonoBehaviour
             Debug.Log($"[Locomotora] Modo de energía cambiado a: {modeName}");
         }
 
-        // Tecla G para desacoplar voluntariamente el último vagón de carga (si hay más de 1 vagón de carga)
+        // Tecla G para desacoplar voluntariamente el último vagón de carga
         if (Input.GetKeyDown(KeyCode.G))
         {
             DetachLastCargoWagon();
         }
 
-        // Avanzar el progreso hacia la estación San Paula
         float speedFactor = isWeaponOverchargeActive ? 1f : speedMultiplierWhenAccelerating;
         currentRouteTime += Time.deltaTime * speedFactor;
 
@@ -96,12 +100,21 @@ public class GameManager : MonoBehaviour
 
     public float GetTurretFireRateMultiplier()
     {
-        return isWeaponOverchargeActive ? turretFireRateMultiplierWhenOvercharged : 1f;
+        float baseMult = isWeaponOverchargeActive ? turretFireRateMultiplierWhenOvercharged : 1f;
+        return baseMult + globalAttackSpeedBonus;
     }
 
     public float GetTrainScrollSpeedMultiplier()
     {
         return isWeaponOverchargeActive ? 0.85f : speedMultiplierWhenAccelerating;
+    }
+
+    // Llamar a este método cuando el Player recolecte la recompensa en la locomotora del tren enemigo
+    public void ApplyGlobalTrainPerk(float extraAttackSpeed, float extraAttackRange)
+    {
+        globalAttackSpeedBonus += extraAttackSpeed;
+        globalAttackRangeBonus += extraAttackRange;
+        Debug.Log($"[Perk Recolectado] Nuevo bono global -> Attack Speed: +{globalAttackSpeedBonus:F2}, Range: +{globalAttackRangeBonus:F1}");
     }
 
     public void RegisterWagon(WagonController wagon)
@@ -120,7 +133,6 @@ public class GameManager : MonoBehaviour
             activeWagons.Remove(removedWagon);
         }
 
-        // Verificar condiciones de derrota: destrucción de la locomotora o pérdida de todos los vagones de carga
         int remainingCargoWagons = 0;
         foreach (WagonController w in activeWagons)
         {
@@ -133,33 +145,35 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        // Actualizar el objetivo de todos los enemigos vivos para que ninguno se quede sin target
         UpdatePrimaryTarget();
     }
 
     public void DetachLastCargoWagon()
     {
-        // Buscar el último vagón de la lista que no sea la locomotora
-        for (int i = activeWagons.Count - 1; i >= 0; i--)
-        {
-            if (activeWagons[i] != null && !activeWagons[i].IsLocomotive)
-            {
-                // Solo permitir sacrificarlo si queda al menos otro vagón de carga
-                int cargoCount = 0;
-                foreach (var w in activeWagons)
-                    if (w != null && !w.IsLocomotive) cargoCount++;
+        WagonController leftmostCargoWagon = null;
+        float minX = float.MaxValue;
+        int cargoCount = 0;
 
-                if (cargoCount > 1)
-                {
-                    Debug.Log($"[Player] Desacoplando voluntariamente el vagón: {activeWagons[i].name}");
-                    activeWagons[i].DestroyOrDetachWagon();
-                }
-                else
-                {
-                    Debug.Log("[Player] No puedes desacoplar el último vagón de suministros.");
-                }
-                break;
+        foreach (var w in activeWagons)
+        {
+            if (w == null || w.IsLocomotive) continue;
+            cargoCount++;
+            float wx = w.GetWorldBounds().min.x;
+            if (wx < minX)
+            {
+                minX = wx;
+                leftmostCargoWagon = w;
             }
+        }
+
+        if (cargoCount > 1 && leftmostCargoWagon != null)
+        {
+            Debug.Log($"[Player] Desacoplando voluntariamente el último vagón: {leftmostCargoWagon.name}");
+            leftmostCargoWagon.DestroyOrDetachWagon();
+        }
+        else
+        {
+            Debug.Log("[Player] No puedes desacoplar el último vagón de suministros.");
         }
     }
 
@@ -172,7 +186,7 @@ public class GameManager : MonoBehaviour
         {
             if (wagon == null || !wagon.gameObject.activeInHierarchy) continue;
 
-            float dist = Vector3.Distance(position, wagon.transform.position);
+            float dist = Vector3.Distance(position, wagon.GetWorldBounds().center);
             if (dist < minDistance)
             {
                 minDistance = dist;
@@ -223,5 +237,15 @@ public class GameManager : MonoBehaviour
     // Métodos públicos para los botones de UI en StartMenu, Victory y GameOver
     public void LoadGameScene() => SceneManager.LoadScene(gameScene);
     public void LoadStartMenu() => SceneManager.LoadScene(startMenuScene);
-    public void QuitGame() => Application.Quit();
+
+    // Funciona tanto en el Editor de Unity (detiene el Play Mode) como en el ejecutable final (.exe)
+    public void QuitGame()
+    {
+        Debug.Log("Saliendo del juego...");
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
 }
