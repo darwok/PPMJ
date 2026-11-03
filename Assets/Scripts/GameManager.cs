@@ -18,6 +18,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private float routeDurationSeconds = 180f;
     private float currentRouteTime = 0f;
     private bool gameEnded = false;
+    public bool isPaused = false;
 
     [Header("Balance de Potencia de la Locomotora (Tecla Q)")]
     [Tooltip("False = Modo Aceleración (tren más rápido), True = Sobrecarga Defensiva (torretas disparan más rápido)")]
@@ -45,6 +46,7 @@ public class GameManager : MonoBehaviour
             return;
         }
         Instance = this;
+        Time.timeScale = 1f;
 
         if (cardDeckManager == null)
         {
@@ -70,6 +72,14 @@ public class GameManager : MonoBehaviour
     {
         if (gameEnded) return;
 
+        // Tecla ESC para Pausar / Reanudar la partida en cualquier momento
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            TogglePause();
+        }
+
+        if (isPaused) return;
+
         // Alternar modo de energía de la locomotora con la tecla Q
         if (Input.GetKeyDown(KeyCode.Q))
         {
@@ -93,6 +103,12 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    public void TogglePause()
+    {
+        isPaused = !isPaused;
+        Time.timeScale = isPaused ? 0f : 1f;
+    }
+
     public float GetRouteProgressNormalized()
     {
         return Mathf.Clamp01(currentRouteTime / routeDurationSeconds);
@@ -109,7 +125,6 @@ public class GameManager : MonoBehaviour
         return isWeaponOverchargeActive ? 0.85f : speedMultiplierWhenAccelerating;
     }
 
-    // Llamar a este método cuando el Player recolecte la recompensa en la locomotora del tren enemigo
     public void ApplyGlobalTrainPerk(float extraAttackSpeed, float extraAttackRange)
     {
         globalAttackSpeedBonus += extraAttackSpeed;
@@ -222,6 +237,7 @@ public class GameManager : MonoBehaviour
     {
         if (gameEnded) return;
         gameEnded = true;
+        Time.timeScale = 1f;
         Debug.Log("¡VICTORIA! El tren llegó a la estación San Paula.");
         SceneManager.LoadScene(victoryScene);
     }
@@ -230,17 +246,27 @@ public class GameManager : MonoBehaviour
     {
         if (gameEnded) return;
         gameEnded = true;
+        Time.timeScale = 1f;
         Debug.Log("DERROTA: El convoy fue destruido.");
         SceneManager.LoadScene(gameOverScene);
     }
 
-    // Métodos públicos para los botones de UI en StartMenu, Victory y GameOver
-    public void LoadGameScene() => SceneManager.LoadScene(gameScene);
-    public void LoadStartMenu() => SceneManager.LoadScene(startMenuScene);
+    // Métodos públicos para los botones de UI en StartMenu, Pausa, Victory y GameOver
+    public void LoadGameScene()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(gameScene);
+    }
 
-    // Funciona tanto en el Editor de Unity (detiene el Play Mode) como en el ejecutable final (.exe)
+    public void LoadStartMenu()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(startMenuScene);
+    }
+
     public void QuitGame()
     {
+        Time.timeScale = 1f;
         Debug.Log("Saliendo del juego...");
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;

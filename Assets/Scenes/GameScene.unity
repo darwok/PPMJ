@@ -2435,7 +2435,7 @@ Transform:
   m_GameObject: {fileID: 321245423}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 15, y: 1, z: 10}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -12643,7 +12643,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WagonController
   isLocomotive: 1
-  maxHealth: 2000
+  maxHealth: 200
   currentHealth: 0
   turretHeightOffset: 1.6
   turretSlots:
@@ -16436,7 +16436,7 @@ MonoBehaviour:
   resetLimitX: -45
   respawnStartX: 45
   floorRendererToScrollUV: {fileID: 321245425}
-  uvScrollDirection: {x: 1, y: 0}
+  uvScrollDirection: {x: -2, y: 0}
 --- !u!114 &1988640529
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -16456,7 +16456,7 @@ MonoBehaviour:
   currentTarget: {fileID: 0}
   routeDurationSeconds: 180
   isWeaponOverchargeActive: 0
-  speedMultiplierWhenAccelerating: 1.35
+  speedMultiplierWhenAccelerating: 2.5
   turretFireRateMultiplierWhenOvercharged: 1.5
   globalAttackSpeedBonus: 0
   globalAttackRangeBonus: 0
@@ -17940,7 +17940,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1564159980089795168, guid: 776640f1fc96c074e949e5e6531c05c8, type: 3}
       propertyPath: maxHealth
-      value: 1500
+      value: 150
       objectReference: {fileID: 0}
     - target: {fileID: 1564159980089795168, guid: 776640f1fc96c074e949e5e6531c05c8, type: 3}
       propertyPath: 'turretSlots.Array.data[0]'
@@ -18004,6 +18004,7 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 330585546}
+  - {fileID: 625184065}
   - {fileID: 410087041}
   - {fileID: 832575519}
   - {fileID: 321245427}
@@ -18013,5 +18014,4 @@ SceneRoots:
   - {fileID: 175237648}
   - {fileID: 339771688}
   - {fileID: 986087854}
-  - {fileID: 625184065}
   - {fileID: 572057322}
