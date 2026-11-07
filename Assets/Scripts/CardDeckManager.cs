@@ -6,12 +6,14 @@ public class CardDeckManager : MonoBehaviour
     [Header("Entrega Periódica de Cartas (Estilo Plants vs. Zombies)")]
     [SerializeField] private float cardDeliveryInterval = 6f;
     [SerializeField] private int maxCardsInHand = 4;
-    public List<CardType> currentHand = new List<CardType>();
-
+    public List<EnumCardType> currentHand = new List<EnumCardType>();
+    
     [Header("Prefabs para Instanciar con las Cartas")]
     [SerializeField] private GameObject turret1AreaPrefab;
     [SerializeField] private GameObject turret2RapidPrefab;
     [SerializeField] private GameObject turret3HeavyPrefab;
+    [SerializeField] private GameObject turret4LanzallamasPrefab;
+    [SerializeField] private GameObject turret5WaterHosePrefab;
     [SerializeField] private GameObject cargoWagonPrefab;
     [SerializeField] private float couplingGapX = 0.25f;
     [SerializeField] private int maxCargoWagons = 3;
@@ -21,11 +23,10 @@ public class CardDeckManager : MonoBehaviour
     private Camera mainCam;
     private int lastGuiButtonClickFrame = -1;
 
-    // Estilos para el HUD y Menú de Pausa
+    // Estilos para el HUD al doble de tamaño
     private GUIStyle boxStyle;
     private GUIStyle titleStyle;
     private GUIStyle labelStyle;
-    private GUIStyle controlsStyle;
     private GUIStyle buttonStyle;
     private GUIStyle selectedButtonStyle;
 
@@ -38,7 +39,6 @@ public class CardDeckManager : MonoBehaviour
 
     void Update()
     {
-        if (GameManager.Instance != null && GameManager.Instance.isPaused) return;
         if (mainCam == null) mainCam = Camera.main;
 
         // Temporizador de cinta transportadora de cartas
@@ -64,8 +64,8 @@ public class CardDeckManager : MonoBehaviour
             selectedHandIndex = -1;
         }
 
-        // Ignorar clics dentro del área del HUD (920 x 275 px) o en el mismo fotograma en que se pulsó un botón GUI
-        bool mouseOverHud = Input.mousePosition.x < 920f && (Screen.height - Input.mousePosition.y) < 275f;
+        // Ignorar clics dentro del área del HUD (880 x 255 px) o en el mismo fotograma en que se pulsó un botón GUI
+        bool mouseOverHud = Input.mousePosition.x < 880f && (Screen.height - Input.mousePosition.y) < 255f;
 
         if (Input.GetMouseButtonDown(0) && !mouseOverHud && Time.frameCount > lastGuiButtonClickFrame)
         {
@@ -89,8 +89,9 @@ public class CardDeckManager : MonoBehaviour
 
     private void AddRandomCardToHand()
     {
+        // Si ya tenemos el máximo de vagones acoplados, entregar únicamente cartas de Torretas (0, 1 o 2) para que no se atasquen cartas de vagón
         int maxExclusive = GetCurrentCargoWagonCount() >= maxCargoWagons ? 3 : 4;
-        CardType newCard = (CardType)Random.Range(0, maxExclusive);
+        EnumCardType newCard = (EnumCardType)Random.Range(0, maxExclusive);
         currentHand.Add(newCard);
     }
 
@@ -98,10 +99,12 @@ public class CardDeckManager : MonoBehaviour
     {
         if (handIndex < 0 || handIndex >= currentHand.Count) return;
 
+        // Seleccionar siempre el índice primero para que nunca quede bloqueado en el HUD
         selectedHandIndex = handIndex;
-        CardType chosen = currentHand[handIndex];
+        EnumCardType chosen = currentHand[handIndex];
 
-        if (chosen == CardType.NewWagon)
+        // Si es una carta de Nuevo Vagón, acoplar el vagón de inmediato (o reparar los vagones si ya está en el límite máximo)
+        if (chosen == EnumCardType.NewWagon)
         {
             if (TryAttachNewWagon())
             {
@@ -109,6 +112,7 @@ public class CardDeckManager : MonoBehaviour
             }
             else if (GameManager.Instance != null)
             {
+                // Si ya hay el máximo de vagones, usar la carta de vagón como blindaje/reparación (+50 HP a todos los vagones) para que nunca se trabe la carta
                 foreach (var w in GameManager.Instance.activeWagons)
                 {
                     if (w != null) w.HealWagon(50f);
@@ -133,9 +137,9 @@ public class CardDeckManager : MonoBehaviour
     {
         if (selectedHandIndex < 0 || selectedHandIndex >= currentHand.Count) return;
 
-        CardType card = currentHand[selectedHandIndex];
+        EnumCardType card = currentHand[selectedHandIndex];
 
-        if (card == CardType.NewWagon)
+        if (card == EnumCardType.NewWagon)
         {
             SelectCard(selectedHandIndex);
             return;
@@ -144,6 +148,7 @@ public class CardDeckManager : MonoBehaviour
         Ray ray = mainCam.ScreenPointToRay(Input.mousePosition);
         RaycastHit[] hits = Physics.RaycastAll(ray, 250f, ~0, QueryTriggerInteraction.Collide);
 
+        // 1. Prioridad: si el clic tocó directamente una de las 2 bases de torreta (TurretSlotMarker)
         foreach (RaycastHit hit in hits)
         {
             TurretSlotMarker slotMarker = hit.collider.GetComponent<TurretSlotMarker>();
@@ -158,6 +163,7 @@ public class CardDeckManager : MonoBehaviour
             }
         }
 
+        // 2. Respaldo: si el clic tocó cualquier parte del vagón (PisoVagon), detectar si fue en la mitad izquierda (0) o derecha (1)
         foreach (RaycastHit hit in hits)
         {
             WagonController wagon = hit.collider.GetComponentInParent<WagonController>();
@@ -174,13 +180,15 @@ public class CardDeckManager : MonoBehaviour
         }
     }
 
-    private GameObject GetPrefabForCard(CardType card)
+    private GameObject GetPrefabForCard(EnumCardType card)
     {
         switch (card)
         {
-            case CardType.Turret1_Area: return turret1AreaPrefab;
-            case CardType.Turret2_Rapid: return turret2RapidPrefab;
-            case CardType.Turret3_Heavy: return turret3HeavyPrefab;
+            case EnumCardType.Turret1_Area: return turret1AreaPrefab;
+            case EnumCardType.Turret2_Rapid: return turret2RapidPrefab;
+            case EnumCardType.Turret3_Heavy: return turret3HeavyPrefab;
+                case EnumCardType.Turret4_Lanzallamas: return turret4LanzallamasPrefab;
+                case EnumCardType.Turret5_WaterHose: return turret5WaterHosePrefab; 
             default: return null;
         }
     }
@@ -250,19 +258,11 @@ public class CardDeckManager : MonoBehaviour
 
         labelStyle = new GUIStyle(GUI.skin.label)
         {
-            fontSize = 18,
+            fontSize = 19,
             fontStyle = FontStyle.Bold,
             wordWrap = false
         };
         labelStyle.normal.textColor = Color.white;
-
-        controlsStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 16,
-            fontStyle = FontStyle.Normal,
-            wordWrap = false
-        };
-        controlsStyle.normal.textColor = new Color(0.85f, 0.92f, 1f, 1f);
 
         buttonStyle = new GUIStyle(GUI.skin.button)
         {
@@ -283,10 +283,13 @@ public class CardDeckManager : MonoBehaviour
     void OnGUI()
     {
         InitStyles();
+
+        // Liberar el foco de teclado de los botones IMGUI para que las teclas 1, 2, 3, 4 nunca sean bloqueadas por OnGUI
         GUIUtility.keyboardControl = 0;
 
+        // Respaldo de teclado dentro de OnGUI por si el evento KeyDown es interceptado por la interfaz
         Event e = Event.current;
-        if (e != null && e.type == EventType.KeyDown && (GameManager.Instance == null || !GameManager.Instance.isPaused))
+        if (e != null && e.type == EventType.KeyDown)
         {
             if (e.keyCode == KeyCode.Alpha1 || e.keyCode == KeyCode.Keypad1) { SelectCard(0); e.Use(); }
             else if (e.keyCode == KeyCode.Alpha2 || e.keyCode == KeyCode.Keypad2) { SelectCard(1); e.Use(); }
@@ -294,26 +297,23 @@ public class CardDeckManager : MonoBehaviour
             else if (e.keyCode == KeyCode.Alpha4 || e.keyCode == KeyCode.Keypad4) { SelectCard(3); e.Use(); }
         }
 
-        // HUD Principal con Controles Visibles para el Playtest Cruzado del Hito 2
-        GUI.Box(new Rect(15, 15, 900, 260), "", boxStyle);
-        GUI.Label(new Rect(25, 20, 880, 30), "TREN 2112 — HUD DE GREYBOX (Hito 2 · First Playable)", titleStyle);
+        GUI.Box(new Rect(15, 15, 860, 235), "", boxStyle);
+        GUI.Label(new Rect(25, 22, 840, 32), "TREN 2112 — HUD DE GREYBOX (Hito 2)", titleStyle);
 
         if (GameManager.Instance != null)
         {
             float progress = GameManager.Instance.GetRouteProgressNormalized() * 100f;
-            string mode = GameManager.Instance.isWeaponOverchargeActive ? "SOBRECARGA TORRETAS (+50% Cadencia)" : "ACELERACIÓN (+35% Velocidad)";
+            string mode = GameManager.Instance.isWeaponOverchargeActive ? "SOBRECARGA TORRETAS" : "ACELERACIÓN";
 
-            GUI.Label(new Rect(30, 54, 860, 26), $"Progreso a San Paula: {progress:F0}%   |   Modo Locomotora [Q]: {mode}", labelStyle);
-            GUI.Label(new Rect(30, 82, 860, 26), $"Soltar último vagón: [G]   |   Vagones vivos: {GameManager.Instance.activeWagons.Count}   |   Pausa: [ESC]", labelStyle);
+            GUI.Label(new Rect(30, 60, 820, 28), $"Progreso a San Paula: {progress:F0}%   |   Modo [Q]: {mode}", labelStyle);
+            GUI.Label(new Rect(30, 92, 820, 28), $"Sacrificar último vagón: [G]   |   Vagones activos: {GameManager.Instance.activeWagons.Count}", labelStyle);
         }
 
-        // Línea de controles siempre visible para que ningún tester necesite explicación verbal
-        GUI.Label(new Rect(30, 112, 860, 24), "CONTROLES: [WASD] Moverse en el techo  |  [Click Izq] Disparar  |  [X] Recargar  |  [Click Der] Cancelar carta", controlsStyle);
-        GUI.Label(new Rect(30, 140, 860, 26), "Mazo de Cartas (Presiona [1-4] o da clic en la carta, y luego haz clic en el techo de un vagón):", labelStyle);
+        GUI.Label(new Rect(30, 128, 820, 28), "Cartas en mano (Presiona 1-4 o haz clic en el botón, luego clic en el techo del vagón):", labelStyle);
 
         for (int i = 0; i < currentHand.Count; i++)
         {
-            string cardLabel = currentHand[i] == CardType.NewWagon
+            string cardLabel = currentHand[i] == EnumCardType.NewWagon
                 ? "Nuevo Vagón"
                 : currentHand[i].ToString().Split('_')[0];
 
@@ -322,35 +322,10 @@ public class CardDeckManager : MonoBehaviour
             string suffix = isSelected ? "] <<" : "]";
             GUIStyle styleToUse = isSelected ? selectedButtonStyle : buttonStyle;
 
-            if (GUI.Button(new Rect(30 + (i * 210), 174, 200, 62), $"{prefix}{i + 1}: {cardLabel}{suffix}", styleToUse))
+            if (GUI.Button(new Rect(30 + (i * 205), 165, 195, 65), $"{prefix}{i + 1}: {cardLabel}{suffix}", styleToUse))
             {
                 lastGuiButtonClickFrame = Time.frameCount;
                 SelectCard(i);
-            }
-        }
-
-        // Ventana emergente de PAUSA cuando el jugador presiona ESC
-        if (GameManager.Instance != null && GameManager.Instance.isPaused)
-        {
-            float pw = 460f;
-            float ph = 280f;
-            float px = (Screen.width - pw) * 0.5f;
-            float py = (Screen.height - ph) * 0.5f;
-
-            GUI.Box(new Rect(px, py, pw, ph), "", boxStyle);
-            GUI.Label(new Rect(px + 20, py + 20, pw - 40, 35), "JUEGO EN PAUSA", titleStyle);
-
-            if (GUI.Button(new Rect(px + 60, py + 75, pw - 120, 50), "Continuar Partida [ESC]", buttonStyle))
-            {
-                GameManager.Instance.TogglePause();
-            }
-            if (GUI.Button(new Rect(px + 60, py + 138, pw - 120, 50), "Reiniciar Nivel", buttonStyle))
-            {
-                GameManager.Instance.LoadGameScene();
-            }
-            if (GUI.Button(new Rect(px + 60, py + 201, pw - 120, 50), "Volver al Menú Principal", buttonStyle))
-            {
-                GameManager.Instance.LoadStartMenu();
             }
         }
     }
