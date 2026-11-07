@@ -9,18 +9,19 @@ public class Bullet : MonoBehaviour
     [SerializeField] private float damage = 25f;
     [SerializeField] private float hitRadius = 0.45f;
 
-    // Configuración de disparo en área / fragmentación (para Torreta 1)
-    private bool isAreaClusterBullet = false;
-    private float areaExplosionRadius = 0f;
+    private bool isAreaClusterBullet;
+    private float areaExplosionRadius;
     private int shrapnelCount = 8;
+
     private Vector3 defaultLocalScale;
-    private bool scaleRecorded = false;
+    private bool scaleRecorded;
 
     private float deactivateTime;
     private GameObject sourcePrefab;
 
-    // Sistema de Object Pooling integrado
-    private static readonly Dictionary<GameObject, Queue<Bullet>> pools = new Dictionary<GameObject, Queue<Bullet>>();
+    private static readonly Dictionary<GameObject, Queue<Bullet>> pools =
+        new Dictionary<GameObject, Queue<Bullet>>();
+
     private static Transform poolContainer;
     private static GameObject fallbackBulletPrefab;
 
@@ -30,12 +31,17 @@ public class Bullet : MonoBehaviour
         {
             fallbackBulletPrefab = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             fallbackBulletPrefab.name = "DefaultPooledBullet_Prefab";
-            fallbackBulletPrefab.transform.localScale = new Vector3(0.35f, 0.35f, 0.35f);
-            Collider c = fallbackBulletPrefab.GetComponent<Collider>();
-            if (c != null) c.isTrigger = true;
+            fallbackBulletPrefab.transform.localScale =
+                new Vector3(0.35f, 0.35f, 0.35f);
+
+            Collider collider = fallbackBulletPrefab.GetComponent<Collider>();
+            if (collider != null)
+                collider.isTrigger = true;
+
             fallbackBulletPrefab.AddComponent<Bullet>();
             fallbackBulletPrefab.SetActive(false);
         }
+
         return fallbackBulletPrefab;
     }
 
@@ -47,17 +53,16 @@ public class Bullet : MonoBehaviour
         bool isAreaCluster = false,
         float explosionRadius = 4.5f,
         float scaleMultiplier = 1f,
-        float customLifetime = -1f)
+        float customLifetime = -1f,
+        EnemyFSM homingTarget = null)
     {
         if (prefab == null)
-        {
             prefab = GetOrCreateFallbackPrefab();
-        }
 
         if (poolContainer == null)
         {
-            GameObject containerObj = new GameObject("_BulletPool_Container");
-            poolContainer = containerObj.transform;
+            GameObject containerObject = new GameObject("_BulletPool_Container");
+            poolContainer = containerObject.transform;
         }
 
         if (!pools.TryGetValue(prefab, out Queue<Bullet> queue))
@@ -67,42 +72,55 @@ public class Bullet : MonoBehaviour
         }
 
         Bullet bulletInstance = null;
+
         while (queue.Count > 0 && bulletInstance == null)
-        {
             bulletInstance = queue.Dequeue();
-        }
 
         if (bulletInstance == null)
         {
-            GameObject obj = Instantiate(prefab, position, rotation, poolContainer);
-            bulletInstance = obj.GetComponent<Bullet>();
+            GameObject bulletObject = Instantiate(
+                prefab,
+                position,
+                rotation,
+                poolContainer
+            );
+
+            bulletInstance = bulletObject.GetComponent<Bullet>();
             if (bulletInstance == null)
-            {
-                bulletInstance = obj.AddComponent<Bullet>();
-            }
+                bulletInstance = bulletObject.AddComponent<Bullet>();
+
             bulletInstance.sourcePrefab = prefab;
-            bulletInstance.defaultLocalScale = obj.transform.localScale;
+            bulletInstance.defaultLocalScale = bulletObject.transform.localScale;
             bulletInstance.scaleRecorded = true;
         }
-        else
+
+        if (!bulletInstance.scaleRecorded)
         {
-            if (!bulletInstance.scaleRecorded)
-            {
-                bulletInstance.defaultLocalScale = bulletInstance.transform.localScale;
-                bulletInstance.scaleRecorded = true;
-            }
-            bulletInstance.transform.SetPositionAndRotation(position, rotation);
-            bulletInstance.gameObject.SetActive(true);
+            bulletInstance.defaultLocalScale = bulletInstance.transform.localScale;
+            bulletInstance.scaleRecorded = true;
         }
 
-        bulletInstance.transform.localScale = bulletInstance.defaultLocalScale * scaleMultiplier;
+        bulletInstance.transform.SetPositionAndRotation(position, rotation);
+        bulletInstance.transform.localScale =
+            bulletInstance.defaultLocalScale * scaleMultiplier;
+
         bulletInstance.isAreaClusterBullet = isAreaCluster;
         bulletInstance.areaExplosionRadius = explosionRadius;
+        bulletInstance.sourcePrefab = prefab;
 
         if (customDamage > 0f)
-        {
             bulletInstance.SetDamage(customDamage);
-        }
+
+        BulletTrack tracker = bulletInstance.GetComponent<BulletTrack>();
+
+        if (homingTarget != null && tracker == null)
+            tracker = bulletInstance.gameObject.AddComponent<BulletTrack>();
+
+        if (tracker != null)
+            tracker.TrackTarget(homingTarget.transform);
+
+        if (!bulletInstance.gameObject.activeSelf)
+            bulletInstance.gameObject.SetActive(true);
 
         bulletInstance.ActivateBullet(customLifetime);
         return bulletInstance;
@@ -113,23 +131,24 @@ public class Bullet : MonoBehaviour
         damage = newDamage;
     }
 
-    void OnEnable()
+    private void OnEnable()
     {
         if (!scaleRecorded)
         {
             defaultLocalScale = transform.localScale;
             scaleRecorded = true;
         }
+
         ActivateBullet(-1f);
     }
 
     private void ActivateBullet(float customLifetime)
     {
-        float life = customLifetime > 0f ? customLifetime : lifetime;
-        deactivateTime = Time.time + life;
+        float bulletLifetime = customLifetime > 0f ? customLifetime : lifetime;
+        deactivateTime = Time.time + bulletLifetime;
     }
 
-    void Update()
+    private void Update()
     {
         if (Time.time >= deactivateTime)
         {
@@ -137,25 +156,42 @@ public class Bullet : MonoBehaviour
             return;
         }
 
+        BulletTrack tracker = GetComponent<BulletTrack>();
+        if (tracker != null)
+            tracker.Steer();
+
         float step = speed * Time.deltaTime;
 
-        // 1. Verificar colisión inmediata en la posición actual
-        Collider[] overlaps = Physics.OverlapSphere(transform.position, hitRadius, ~0, QueryTriggerInteraction.Collide);
+        Collider[] overlaps = Physics.OverlapSphere(
+            transform.position,
+            hitRadius,
+            ~0,
+            QueryTriggerInteraction.Collide
+        );
+
         for (int i = 0; i < overlaps.Length; i++)
         {
-            if (TryProcessHit(overlaps[i])) return;
+            if (TryProcessHit(overlaps[i]))
+                return;
         }
 
-        // 2. SphereCast continuo a lo largo del avance del frame para nunca atravesar enemigos
-        RaycastHit[] hits = Physics.SphereCastAll(transform.position, hitRadius, transform.forward, step, ~0, QueryTriggerInteraction.Collide);
+        RaycastHit[] hits = Physics.SphereCastAll(
+            transform.position,
+            hitRadius,
+            transform.forward,
+            step,
+            ~0,
+            QueryTriggerInteraction.Collide
+        );
+
         for (int i = 0; i < hits.Length; i++)
         {
-            if (TryProcessHit(hits[i].collider)) return;
+            if (TryProcessHit(hits[i].collider))
+                return;
         }
 
         transform.position += transform.forward * step;
 
-        // 3. Si es una bala pesada de área (Torreta 1) y toca el nivel del suelo, detonar en esquirlas
         if (isAreaClusterBullet && transform.position.y <= 0.6f)
         {
             DetonateAreaCluster(transform.position);
@@ -165,70 +201,76 @@ public class Bullet : MonoBehaviour
 
     private bool TryProcessHit(Collider other)
     {
-        if (other == null || other.gameObject == gameObject) return false;
+        if (other == null || other.gameObject == gameObject)
+            return false;
 
         if (other.CompareTag("Player") ||
             other.GetComponentInParent<PlayerMove>() != null ||
             other.GetComponentInParent<WagonController>() != null ||
             other.GetComponentInParent<Turret>() != null ||
+            other.GetComponentInParent<TurretFlow>() != null ||
             other.GetComponentInParent<TurretSlotMarker>() != null ||
-            other.GetComponent<Bullet>() != null)
+            other.GetComponentInParent<Bullet>() != null)
         {
             return false;
         }
 
         EnemyFSM enemy = other.GetComponentInParent<EnemyFSM>();
+
         if (enemy == null)
-        {
             enemy = other.GetComponentInChildren<EnemyFSM>();
-        }
 
-        if (enemy != null)
-        {
-            if (isAreaClusterBullet)
-            {
-                DetonateAreaCluster(enemy.GetTargetCenter());
-            }
-            else
-            {
-                enemy.TakeDamage(damage);
-            }
-            ReturnToPool();
-            return true;
-        }
+        if (enemy == null)
+            return false;
 
-        return false;
+        if (isAreaClusterBullet)
+            DetonateAreaCluster(enemy.GetTargetCenter());
+        else
+            enemy.TakeDamage(damage);
+
+        ReturnToPool();
+        return true;
     }
 
     private void DetonateAreaCluster(Vector3 impactPoint)
     {
-        // Aplicar daño en toda la zona de explosión
-        Collider[] hits = Physics.OverlapSphere(impactPoint, areaExplosionRadius, ~0, QueryTriggerInteraction.Collide);
+        Collider[] hits = Physics.OverlapSphere(
+            impactPoint,
+            areaExplosionRadius,
+            ~0,
+            QueryTriggerInteraction.Collide
+        );
+
         HashSet<EnemyFSM> damagedEnemies = new HashSet<EnemyFSM>();
 
         foreach (Collider hit in hits)
         {
-            EnemyFSM e = hit.GetComponentInParent<EnemyFSM>();
-            if (e != null && !damagedEnemies.Contains(e))
-            {
-                damagedEnemies.Add(e);
-                e.TakeDamage(damage);
-            }
+            EnemyFSM enemy = hit.GetComponentInParent<EnemyFSM>();
+
+            if (enemy != null && damagedEnemies.Add(enemy))
+                enemy.TakeDamage(damage);
         }
 
-        // Disparar un anillo de 8 balas medianas/pequeñas (esquirlas) en 360 grados para ver claramente el efecto de área
-        GameObject prefabToUse = sourcePrefab != null ? sourcePrefab : GetOrCreateFallbackPrefab();
+        GameObject prefabToUse = sourcePrefab != null
+            ? sourcePrefab
+            : GetOrCreateFallbackPrefab();
+
         float angleStep = 360f / shrapnelCount;
-        Vector3 spawnOrigin = new Vector3(impactPoint.x, Mathf.Max(0.8f, impactPoint.y), impactPoint.z);
+        Vector3 spawnOrigin = new Vector3(
+            impactPoint.x,
+            Mathf.Max(0.8f, impactPoint.y),
+            impactPoint.z
+        );
 
         for (int i = 0; i < shrapnelCount; i++)
         {
             float angle = i * angleStep;
-            Quaternion rot = Quaternion.Euler(0f, angle, 0f);
+            Quaternion rotation = Quaternion.Euler(0f, angle, 0f);
+
             SpawnFromPool(
                 prefabToUse,
                 spawnOrigin,
-                rot,
+                rotation,
                 customDamage: damage * 0.35f,
                 isAreaCluster: false,
                 explosionRadius: 0f,
@@ -241,19 +283,20 @@ public class Bullet : MonoBehaviour
     private void ReturnToPool()
     {
         isAreaClusterBullet = false;
-        if (scaleRecorded)
-        {
-            transform.localScale = defaultLocalScale;
-        }
 
-        if (sourcePrefab != null && pools.TryGetValue(sourcePrefab, out Queue<Bullet> queue))
+        BulletTrack tracker = GetComponent<BulletTrack>();
+        if (tracker != null)
+            tracker.TrackTarget(null);
+
+        if (scaleRecorded)
+            transform.localScale = defaultLocalScale;
+
+        gameObject.SetActive(false);
+
+        if (sourcePrefab != null &&
+            pools.TryGetValue(sourcePrefab, out Queue<Bullet> queue))
         {
-            gameObject.SetActive(false);
             queue.Enqueue(this);
-        }
-        else
-        {
-            gameObject.SetActive(false);
         }
     }
 }
