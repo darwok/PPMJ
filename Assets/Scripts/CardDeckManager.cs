@@ -6,12 +6,14 @@ public class CardDeckManager : MonoBehaviour
     [Header("Entrega Periódica de Cartas (Estilo Plants vs. Zombies)")]
     [SerializeField] private float cardDeliveryInterval = 6f;
     [SerializeField] private int maxCardsInHand = 4;
-    public List<CardType> currentHand = new List<CardType>();
-
+    public List<EnumCardType> currentHand = new List<EnumCardType>();
+    
     [Header("Prefabs para Instanciar con las Cartas")]
     [SerializeField] private GameObject turret1AreaPrefab;
     [SerializeField] private GameObject turret2RapidPrefab;
     [SerializeField] private GameObject turret3HeavyPrefab;
+    [SerializeField] private GameObject turret4LanzallamasPrefab;
+    [SerializeField] private GameObject turret5WaterHosePrefab;
     [SerializeField] private GameObject cargoWagonPrefab;
     [SerializeField] private float couplingGapX = 0.25f;
     [SerializeField] private int maxCargoWagons = 3;
@@ -89,7 +91,7 @@ public class CardDeckManager : MonoBehaviour
     {
         // Si ya tenemos el máximo de vagones acoplados, entregar únicamente cartas de Torretas (0, 1 o 2) para que no se atasquen cartas de vagón
         int maxExclusive = GetCurrentCargoWagonCount() >= maxCargoWagons ? 3 : 4;
-        CardType newCard = (CardType)Random.Range(0, maxExclusive);
+        EnumCardType newCard = (EnumCardType)Random.Range(0, maxExclusive);
         currentHand.Add(newCard);
     }
 
@@ -99,10 +101,10 @@ public class CardDeckManager : MonoBehaviour
 
         // Seleccionar siempre el índice primero para que nunca quede bloqueado en el HUD
         selectedHandIndex = handIndex;
-        CardType chosen = currentHand[handIndex];
+        EnumCardType chosen = currentHand[handIndex];
 
         // Si es una carta de Nuevo Vagón, acoplar el vagón de inmediato (o reparar los vagones si ya está en el límite máximo)
-        if (chosen == CardType.NewWagon)
+        if (chosen == EnumCardType.NewWagon)
         {
             if (TryAttachNewWagon())
             {
@@ -135,9 +137,9 @@ public class CardDeckManager : MonoBehaviour
     {
         if (selectedHandIndex < 0 || selectedHandIndex >= currentHand.Count) return;
 
-        CardType card = currentHand[selectedHandIndex];
+        EnumCardType card = currentHand[selectedHandIndex];
 
-        if (card == CardType.NewWagon)
+        if (card == EnumCardType.NewWagon)
         {
             SelectCard(selectedHandIndex);
             return;
@@ -178,13 +180,15 @@ public class CardDeckManager : MonoBehaviour
         }
     }
 
-    private GameObject GetPrefabForCard(CardType card)
+    private GameObject GetPrefabForCard(EnumCardType card)
     {
         switch (card)
         {
-            case CardType.Turret1_Area: return turret1AreaPrefab;
-            case CardType.Turret2_Rapid: return turret2RapidPrefab;
-            case CardType.Turret3_Heavy: return turret3HeavyPrefab;
+            case EnumCardType.Turret1_Area: return turret1AreaPrefab;
+            case EnumCardType.Turret2_Rapid: return turret2RapidPrefab;
+            case EnumCardType.Turret3_Heavy: return turret3HeavyPrefab;
+                case EnumCardType.Turret4_Lanzallamas: return turret4LanzallamasPrefab;
+                case EnumCardType.Turret5_WaterHose: return turret5WaterHosePrefab; 
             default: return null;
         }
     }
@@ -309,7 +313,7 @@ public class CardDeckManager : MonoBehaviour
 
         for (int i = 0; i < currentHand.Count; i++)
         {
-            string cardLabel = currentHand[i] == CardType.NewWagon
+            string cardLabel = currentHand[i] == EnumCardType.NewWagon
                 ? "Nuevo Vagón"
                 : currentHand[i].ToString().Split('_')[0];
 
