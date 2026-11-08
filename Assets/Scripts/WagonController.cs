@@ -8,6 +8,10 @@ public class WagonController : MonoBehaviour
     [SerializeField] private float maxHealth = 150f;
     [SerializeField] private float currentHealth;
 
+    [Header("Alineación Automática en Z")]
+    [Tooltip("Fuerza que el vagón y su malla hija PisoVagon queden centrados en Z = 0")]
+    [SerializeField] private float targetZPosition = 0f;
+
     [Header("Ajuste de Altura de Torretas en el Inspector")]
     [Tooltip("Modifica este valor en el Inspector (incluso en Play Mode) para subir o bajar la altura Y de las torretas sobre el vagón")]
     public float turretHeightOffset = 1.6f;
@@ -25,10 +29,17 @@ public class WagonController : MonoBehaviour
         currentHealth = maxHealth;
         installedTurrets = new Turret[2];
 
+        // Solo es locomotora si su nombre contiene "locomot" o "ejemplo"
         if (name.ToLower().Contains("locomot") || name.ToLower().Contains("ejemplo"))
         {
             isLocomotive = true;
         }
+        else
+        {
+            isLocomotive = false;
+        }
+
+        AlignChildMeshToZ(targetZPosition);
 
         if (!isLocomotive)
         {
@@ -44,9 +55,34 @@ public class WagonController : MonoBehaviour
         }
     }
 
+    public void SetAsCargoWagon()
+    {
+        isLocomotive = false;
+    }
+
+    // Asegura que tanto el objeto padre como su hijo PisoVagon estén alineados en Z = 0 sin el desfase de -3.42
+    public void AlignChildMeshToZ(float targetZ)
+    {
+        Vector3 p = transform.position;
+        p.z = targetZ;
+        transform.position = p;
+
+        foreach (Transform child in transform)
+        {
+            if (child.GetComponent<TurretSlotMarker>() != null || child.GetComponent<Turret>() != null)
+                continue;
+
+            Vector3 lp = child.localPosition;
+            if (Mathf.Abs(lp.z) > 0.01f)
+            {
+                lp.z = 0f;
+                child.localPosition = lp;
+            }
+        }
+    }
+
     void Update()
     {
-        // Mantener actualizada en tiempo real la altura de las torretas por si ajustas turretHeightOffset en el Inspector mientras juegas
         if (installedTurrets != null && turretSlots != null)
         {
             for (int i = 0; i < installedTurrets.Length; i++)
@@ -61,25 +97,34 @@ public class WagonController : MonoBehaviour
 
     public Bounds GetWorldBounds()
     {
-        Renderer[] renderers = GetComponentsInChildren<Renderer>();
+        MeshFilter[] meshFilters = GetComponentsInChildren<MeshFilter>();
         bool hasBounds = false;
         Bounds combined = new Bounds(transform.position, new Vector3(10f, 5f, 5f));
 
-        foreach (Renderer r in renderers)
+        foreach (MeshFilter mf in meshFilters)
         {
-            if (r.GetComponent<TurretSlotMarker>() != null || r.GetComponentInParent<Turret>() != null)
+            if (mf == null || mf.sharedMesh == null) continue;
+            if (mf.GetComponent<TurretSlotMarker>() != null || mf.GetComponentInParent<Turret>() != null)
                 continue;
 
+            Transform t = mf.transform;
+            Bounds localB = mf.sharedMesh.bounds;
+            Vector3 worldCenter = t.TransformPoint(localB.center);
+            Vector3 worldSize = Vector3.Scale(localB.size, t.lossyScale);
+            worldSize = new Vector3(Mathf.Abs(worldSize.x), Mathf.Abs(worldSize.y), Mathf.Abs(worldSize.z));
+
+            Bounds worldB = new Bounds(worldCenter, worldSize);
             if (!hasBounds)
             {
-                combined = r.bounds;
+                combined = worldB;
                 hasBounds = true;
             }
             else
             {
-                combined.Encapsulate(r.bounds);
+                combined.Encapsulate(worldB);
             }
         }
+
         return combined;
     }
 
@@ -88,7 +133,8 @@ public class WagonController : MonoBehaviour
         TurretSlotMarker[] existingMarkers = GetComponentsInChildren<TurretSlotMarker>();
         for (int i = 0; i < existingMarkers.Length; i++)
         {
-            Destroy(existingMarkers[i].gameObject);
+            if (Application.isPlaying) Destroy(existingMarkers[i].gameObject);
+            else DestroyImmediate(existingMarkers[i].gameObject);
         }
 
         turretSlots = new Transform[2];

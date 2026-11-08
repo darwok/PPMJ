@@ -2485,6 +2485,7 @@ GameObject:
   - component: {fileID: 330585545}
   - component: {fileID: 330585544}
   - component: {fileID: 330585547}
+  - component: {fileID: 330585548}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -2610,6 +2611,32 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &330585548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5c062f9287f73f545bc1607a6146614a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TrainCameraController
+  playerTarget: {fileID: 164591257}
+  followOffset: {x: 0, y: 14, z: -13}
+  followRotationEuler: {x: 48, y: 0, z: 0}
+  followFOV: 52
+  overviewBaseHeightY: 24
+  overviewBaseDistanceZ: -22
+  extraHeightPerWagon: 3.2
+  extraDistanceZPerWagon: 2.8
+  overviewRotationEuler: {x: 52, y: 0, z: 0}
+  overviewFOV: 58
+  positionSmoothTime: 0.18
+  rotationLerpSpeed: 8
+  toggleViewKey: 118
+  showOnScreenToggleButton: 1
 --- !u!1 &339324336
 GameObject:
   m_ObjectHideFlags: 0
@@ -8531,6 +8558,8 @@ MonoBehaviour:
   isLocomotive: 1
   maxHealth: 2000
   currentHealth: 0
+  alignVisualCenterToZZeroOnStart: 1
+  targetZPosition: 0
   turretHeightOffset: 1.6
   turretSlots:
   - {fileID: 0}
@@ -12645,6 +12674,8 @@ MonoBehaviour:
   isLocomotive: 1
   maxHealth: 2000
   currentHealth: 0
+  alignVisualCenterToZZeroOnStart: 1
+  targetZPosition: 0
   turretHeightOffset: 1.6
   turretSlots:
   - {fileID: 0}
@@ -16436,7 +16467,7 @@ MonoBehaviour:
   resetLimitX: -45
   respawnStartX: 45
   floorRendererToScrollUV: {fileID: 321245425}
-  uvScrollDirection: {x: 1, y: 0}
+  uvScrollDirection: {x: -2, y: 0}
 --- !u!114 &1988640529
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -16498,6 +16529,8 @@ MonoBehaviour:
   turret1AreaPrefab: {fileID: 7312890356394688884, guid: d07d3414da3af1c4cb9ff4663a3ead14, type: 3}
   turret2RapidPrefab: {fileID: 2192662164640016904, guid: ef2e0cf91a8dd5a43941c5c087dfea7c, type: 3}
   turret3HeavyPrefab: {fileID: 4714853344131131188, guid: 26ccf14aeccf26449a4360e814cdd873, type: 3}
+  turret4LanzallamasPrefab: {fileID: 0}
+  turret5WaterHosePrefab: {fileID: 0}
   cargoWagonPrefab: {fileID: 8871773992570484697, guid: 776640f1fc96c074e949e5e6531c05c8, type: 3}
   couplingGapX: 0.25
   maxCargoWagons: 3
