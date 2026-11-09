@@ -3,11 +3,22 @@ using UnityEngine;
 
 public class EnemySpawnerAndTreadmill : MonoBehaviour
 {
+    [System.Serializable]
+    private class EnemySpawnSettings
+    {
+        public GameObject enemyPrefab;
+
+        [Min(0.01f)]
+        [Tooltip("Segundos entre apariciones de este enemigo")]
+        public float spawnInterval = 3.5f;
+
+        [System.NonSerialized]
+        public float nextSpawnTime;
+    }
+
     [Header("Spawner de Oleadas de Zombies")]
-    [SerializeField] private GameObject enemyPrefab;
+    [SerializeField] private List<EnemySpawnSettings> enemyTypes = new List<EnemySpawnSettings>();
     [SerializeField] private Transform[] spawnPoints;
-    [SerializeField] private float initialSpawnInterval = 3.5f;
-    [SerializeField] private float minSpawnInterval = 1.0f;
 
     [Header("Efecto Treadmill (Ilusión de Movimiento del Tren)")]
     [Tooltip("Si lo dejas vacío, el script genera automáticamente durmientes de vía y postes para ver el efecto de movimiento")]
@@ -19,12 +30,10 @@ public class EnemySpawnerAndTreadmill : MonoBehaviour
     [SerializeField] private Renderer floorRendererToScrollUV;
     [SerializeField] private Vector2 uvScrollDirection = new Vector2(0.5f, 0f);
 
-    private float nextSpawnTime;
     private Vector2 currentUVOffset;
 
     void Start()
     {
-        // Si no se arrastraron objetos manualmente al arreglo Scrolling Props, crear bloques de referencia automáticamente
         if (autoGenerateGreyboxPropsIfEmpty && (scrollingProps == null || scrollingProps.Count == 0))
         {
             GenerateDefaultTreadmillProps();
@@ -36,19 +45,16 @@ public class EnemySpawnerAndTreadmill : MonoBehaviour
         scrollingProps = new List<Transform>();
         GameObject container = new GameObject("_Treadmill_EnvironmentProps");
 
-        // Crear durmientes de vía y postes laterales fuera del paso de los enemigos para percibir la velocidad del tren
         for (float x = resetLimitX; x < respawnStartX; x += 9f)
         {
-            // Poste / Roca superior (Z = +18)
             GameObject topProp = GameObject.CreatePrimitive(PrimitiveType.Cube);
             topProp.name = "Treadmill_Pillar_Top";
             topProp.transform.SetParent(container.transform);
             topProp.transform.position = new Vector3(x, 1.5f, 18f);
             topProp.transform.localScale = new Vector3(1.2f, 3f, 1.2f);
-            Destroy(topProp.GetComponent<Collider>()); // Sin collider para no estorbar al NavMesh ni a las balas
+            Destroy(topProp.GetComponent<Collider>());
             scrollingProps.Add(topProp.transform);
 
-            // Poste / Roca inferior (Z = -22)
             GameObject bottomProp = GameObject.CreatePrimitive(PrimitiveType.Cube);
             bottomProp.name = "Treadmill_Pillar_Bottom";
             bottomProp.transform.SetParent(container.transform);
@@ -67,31 +73,37 @@ public class EnemySpawnerAndTreadmill : MonoBehaviour
 
     private void HandleEnemySpawning()
     {
-        if (enemyPrefab == null || Time.time < nextSpawnTime) return;
+        if (enemyTypes == null) return;
 
-        float progress = GameManager.Instance != null ? GameManager.Instance.GetRouteProgressNormalized() : 0f;
-        float currentInterval = Mathf.Lerp(initialSpawnInterval, minSpawnInterval, progress);
-        nextSpawnTime = Time.time + currentInterval;
-
-        Vector3 spawnPos;
-        if (spawnPoints != null && spawnPoints.Length > 0)
+        foreach (EnemySpawnSettings enemy in enemyTypes)
         {
-            Transform pt = spawnPoints[Random.Range(0, spawnPoints.Length)];
-            spawnPos = pt.position;
-        }
-        else
-        {
-            float zSide = Random.value > 0.5f ? 14f : -18f;
-            float xPos = Random.Range(-22f, 8f);
-            spawnPos = new Vector3(xPos, 0.5f, zSide);
-        }
+            if (enemy == null || enemy.enemyPrefab == null || Time.time < enemy.nextSpawnTime)
+                continue;
 
-        Instantiate(enemyPrefab, spawnPos, Quaternion.identity);
+            enemy.nextSpawnTime = Time.time + Mathf.Max(0.01f, enemy.spawnInterval);
+
+            Vector3 spawnPos;
+            if (spawnPoints != null && spawnPoints.Length > 0)
+            {
+                Transform pt = spawnPoints[Random.Range(0, spawnPoints.Length)];
+                spawnPos = pt.position;
+            }
+            else
+            {
+                float zSide = Random.value > 0.5f ? 14f : -18f;
+                float xPos = Random.Range(-22f, 8f);
+                spawnPos = new Vector3(xPos, 0.5f, zSide);
+            }
+
+            Instantiate(enemy.enemyPrefab, spawnPos, Quaternion.identity);
+        }
     }
 
     private void HandleTreadmillScrolling()
     {
-        float speedMult = GameManager.Instance != null ? GameManager.Instance.GetTrainScrollSpeedMultiplier() : 1f;
+        float speedMult = GameManager.Instance != null
+            ? GameManager.Instance.GetTrainScrollSpeedMultiplier()
+            : 1f;
         float currentSpeed = baseScrollSpeed * speedMult;
 
         if (scrollingProps != null)

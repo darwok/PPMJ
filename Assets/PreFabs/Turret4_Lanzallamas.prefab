@@ -388,7 +388,7 @@ MonoBehaviour:
   fireRate: 0.08
   damage: 3
   projectileLifetime: 0.5
-  bulletPrefab: {fileID: 2681354327679723590, guid: be2cfde62221d014e90bbc8bb58bd05d, type: 3}
+  bulletPrefab: {fileID: 2681354327679723590, guid: 0eccba982a858cd498895ad0e59813b7, type: 3}
   firePoint: {fileID: 1156701618764993993}
 --- !u!1 &5935896466473057230
 GameObject:
@@ -415,7 +415,7 @@ Transform:
   m_GameObject: {fileID: 5935896466473057230}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.0382, y: 1.5, z: 0.6000004}
+  m_LocalPosition: {x: -0.007, y: 0.21, z: 1.42}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
