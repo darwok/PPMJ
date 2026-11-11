@@ -1,36 +1,36 @@
-using UnityEngine;
+Ôªøusing UnityEngine;
 
 public enum TrainDeckZone
 {
-    PlayerTrain,       // Sobre los vagones de nuestro tren (sin poder caerse)
-    EnemyTrainBoarding // Cuando salta al tren enemigo paralelo (ej. en Z = 10)
+    PlayerTrain,       // Caminando DENTRO de los vagones de nuestro tren (piso interior)
+    EnemyTrainBoarding // Cuando salta al tren enemigo paralelo en Z = 10
 }
 
 public class PlayerMove : MonoBehaviour
 {
-    [Header("Movimiento sobre los Vagones (WASD)")]
-    [SerializeField] private float speed = 7f;
-    [Tooltip("Margen respecto al borde de los vagones para que el Player nunca se caiga")]
-    [SerializeField] private float roofEdgePadding = 0.45f;
-    [Tooltip("Altura del pivote del Player sobre la cara superior del techo del vagÛn")]
-    [SerializeField] private float playerHeightOffsetOnRoof = 1.0f;
+    [Header("Movimiento Dentro de los Vagones (WASD)")]
+    [SerializeField] private float speed = 7.5f;
+    [Tooltip("Margen respecto a las paredes/bordes del vag√≥n para que el Player no atraviese los pilares ni se caiga")]
+    [SerializeField] private float interiorWallPadding = 0.55f;
+    [Tooltip("True = Camina sobre el piso INTERIOR del vag√≥n (dejando el techo exclusivo para torretas)")]
+    [SerializeField] private bool walkInsideWagonFloor = true;
+    [Tooltip("Altura del Player respecto al piso interior del vag√≥n (aj√∫stalo en el Inspector si tu piso es m√°s grueso)")]
+    [SerializeField] private float playerInteriorFloorOffsetY = 1.15f;
 
-    [Header("Abordaje a Tren Enemigo Paralelo / EstaciÛn (Preparado para siguiente fase)")]
+    [Header("Abordaje a Tren Enemigo Paralelo (Z = 10)")]
     public TrainDeckZone currentZone = TrainDeckZone.PlayerTrain;
-    [Tooltip("Se activa autom·ticamente (true) durante 10 s cuando el tren enemigo en Z=10 se queda sin vida")]
     public bool canBoardEnemyTrain = false;
     public KeyCode jumpBetweenTrainsKey = KeyCode.Space;
-    [Tooltip("LÌmites de la superficie del tren enemigo paralelo (por defecto en Z = 10)")]
-    public Bounds enemyTrainRoofBounds = new Bounds(new Vector3(-5f, 3.5f, 10f), new Vector3(30f, 5f, 5f));
+    public Bounds enemyTrainRoofBounds = new Bounds(new Vector3(-5f, 1.1f, 10f), new Vector3(20f, 0.4f, 4.6f));
 
     private Rigidbody rb;
+    private bool pendingUiJump = false;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
         if (rb != null)
         {
-            // Evitar que la gravedad tire al Player o que rote al caminar sobre los vagones
             rb.useGravity = false;
             rb.isKinematic = true;
             rb.constraints = RigidbodyConstraints.FreezeRotation;
@@ -39,7 +39,8 @@ public class PlayerMove : MonoBehaviour
 
     void Update()
     {
-        // Movimiento en 2 ejes sobre toda la superficie de los vagones (W/S para Z, A/D para X)
+        if (GameManager.Instance != null && GameManager.Instance.isPaused) return;
+
         float moveX = 0f;
         float moveZ = 0f;
 
@@ -53,13 +54,15 @@ public class PlayerMove : MonoBehaviour
 
         Vector3 nextPos = transform.position + moveDir * speed * Time.deltaTime;
 
-        // Verificar si el jugador quiere saltar al tren enemigo paralelo (o regresar a nuestro tren)
-        HandleTrainBoardingJump(ref nextPos);
+        if (Input.GetKeyDown(jumpBetweenTrainsKey) || pendingUiJump)
+        {
+            pendingUiJump = false;
+            TryExecuteTrainJump(ref nextPos);
+        }
 
-        // Restringir (Clamp) la posiciÛn X, Y, Z para que camine libremente por los vagones sin caerse
         if (currentZone == TrainDeckZone.PlayerTrain)
         {
-            ClampToPlayerTrainRoof(ref nextPos);
+            ClampToPlayerTrainInterior(ref nextPos);
         }
         else if (currentZone == TrainDeckZone.EnemyTrainBoarding)
         {
@@ -69,40 +72,70 @@ public class PlayerMove : MonoBehaviour
         transform.position = nextPos;
     }
 
-    private void HandleTrainBoardingJump(ref Vector3 currentPos)
+    public bool IsNearBoardingEdge(out string actionLabel)
     {
-        if (!Input.GetKeyDown(jumpBetweenTrainsKey)) return;
+        actionLabel = "";
+        if (!canBoardEnemyTrain) return false;
 
-        if (currentZone == TrainDeckZone.PlayerTrain && canBoardEnemyTrain)
+        if (currentZone == TrainDeckZone.PlayerTrain)
         {
             if (TryGetCombinedPlayerTrainBounds(out Bounds ourBounds))
             {
-                // Solo permitir saltar si el Player se acercÛ a la orilla superior ("arriba", borde +Z) de nuestro tren
-                float distToNorthEdge = Mathf.Abs(currentPos.z - (ourBounds.max.z - roofEdgePadding));
-                if (distToNorthEdge <= 1.5f)
+                float distToNorthEdge = Mathf.Abs(transform.position.z - (ourBounds.max.z - interiorWallPadding));
+                if (distToNorthEdge <= 1.6f)
                 {
-                    currentZone = TrainDeckZone.EnemyTrainBoarding;
-                    currentPos.z = enemyTrainRoofBounds.min.z + roofEdgePadding;
-                    currentPos.y = enemyTrainRoofBounds.max.y + playerHeightOffsetOnRoof;
-                    Debug.Log("[Abordaje] °Saltaste al tren enemigo! Corre a su locomotora por la recompensa.");
+                    actionLabel = "üöÄ SALTAR AL TREN ENEMIGO";
+                    return true;
                 }
             }
         }
         else if (currentZone == TrainDeckZone.EnemyTrainBoarding)
         {
-            // Permitir saltar de regreso a nuestro tren desde la orilla inferior (-Z) del tren enemigo
-            float distToSouthEdge = Mathf.Abs(currentPos.z - (enemyTrainRoofBounds.min.z + roofEdgePadding));
-            if (distToSouthEdge <= 1.5f && TryGetCombinedPlayerTrainBounds(out Bounds ourBounds))
+            float distToSouthEdge = Mathf.Abs(transform.position.z - (enemyTrainRoofBounds.min.z + interiorWallPadding));
+            if (distToSouthEdge <= 1.6f)
+            {
+                actionLabel = "üîô SALTAR DE REGRESO A TU TREN";
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void TriggerBoardingJumpFromUI()
+    {
+        pendingUiJump = true;
+    }
+
+    private void TryExecuteTrainJump(ref Vector3 currentPos)
+    {
+        if (currentZone == TrainDeckZone.PlayerTrain && canBoardEnemyTrain)
+        {
+            if (TryGetCombinedPlayerTrainBounds(out Bounds ourBounds))
+            {
+                float distToNorthEdge = Mathf.Abs(currentPos.z - (ourBounds.max.z - interiorWallPadding));
+                if (distToNorthEdge <= 1.8f)
+                {
+                    currentZone = TrainDeckZone.EnemyTrainBoarding;
+                    currentPos.z = enemyTrainRoofBounds.min.z + interiorWallPadding + 0.2f;
+                    currentPos.x = Mathf.Clamp(currentPos.x, enemyTrainRoofBounds.min.x + 1f, enemyTrainRoofBounds.max.x - 1f);
+                    Debug.Log("[Abordaje] ¬°Saltaste al interior del tren enemigo! Camina hacia su locomotora para recoger el Drop.");
+                }
+            }
+        }
+        else if (currentZone == TrainDeckZone.EnemyTrainBoarding)
+        {
+            float distToSouthEdge = Mathf.Abs(currentPos.z - (enemyTrainRoofBounds.min.z + interiorWallPadding));
+            if (distToSouthEdge <= 1.8f && TryGetCombinedPlayerTrainBounds(out Bounds ourBounds))
             {
                 currentZone = TrainDeckZone.PlayerTrain;
-                currentPos.z = ourBounds.max.z - roofEdgePadding;
-                currentPos.y = ourBounds.max.y + playerHeightOffsetOnRoof;
-                Debug.Log("[Abordaje] Regresaste a salvo a tu tren.");
+                currentPos.z = ourBounds.max.z - interiorWallPadding - 0.2f;
+                currentPos.x = Mathf.Clamp(currentPos.x, ourBounds.min.x + 1f, ourBounds.max.x - 1f);
+                Debug.Log("[Abordaje] ¬°Regresaste a salvo a tu tren!");
             }
         }
     }
 
-    private void ClampToPlayerTrainRoof(ref Vector3 pos)
+    private void ClampToPlayerTrainInterior(ref Vector3 pos)
     {
         if (TryGetCombinedPlayerTrainBounds(out Bounds trainBounds))
         {
@@ -112,14 +145,23 @@ public class PlayerMove : MonoBehaviour
 
     private void ClampToBounds(ref Vector3 pos, Bounds bounds)
     {
-        float minX = bounds.min.x + roofEdgePadding;
-        float maxX = bounds.max.x - roofEdgePadding;
-        float minZ = bounds.min.z + roofEdgePadding;
-        float maxZ = bounds.max.z - roofEdgePadding;
+        float minX = bounds.min.x + interiorWallPadding;
+        float maxX = bounds.max.x - interiorWallPadding;
+        float minZ = bounds.min.z + interiorWallPadding;
+        float maxZ = bounds.max.z - interiorWallPadding;
 
         pos.x = Mathf.Clamp(pos.x, minX, maxX);
         pos.z = Mathf.Clamp(pos.z, minZ, maxZ);
-        pos.y = bounds.max.y + playerHeightOffsetOnRoof;
+
+        // Si walkInsideWagonFloor es true, el Player camina en el piso interior (bounds.min.y + offset), dejando el techo libre para las torretas
+        if (walkInsideWagonFloor)
+        {
+            pos.y = bounds.min.y + playerInteriorFloorOffsetY;
+        }
+        else
+        {
+            pos.y = bounds.max.y + playerInteriorFloorOffsetY;
+        }
     }
 
     private bool TryGetCombinedPlayerTrainBounds(out Bounds combinedBounds)
@@ -132,10 +174,6 @@ public class PlayerMove : MonoBehaviour
         foreach (WagonController w in GameManager.Instance.activeWagons)
         {
             if (w == null || !w.gameObject.activeInHierarchy) continue;
-
-            // Si quieres que el Player solo camine sobre los vagones de carga y no sobre la locomotora,
-            // puedes descomentar la siguiente lÌnea:
-            // if (w.IsLocomotive) continue;
 
             Bounds wb = w.GetWorldBounds();
             if (!initialized)
@@ -151,13 +189,11 @@ public class PlayerMove : MonoBehaviour
         return initialized;
     }
 
-    // Llamar a este mÈtodo cuando el tren enemigo sea destruido para abrir o cerrar la ventana de 10 s de abordaje
     public void SetEnemyTrainBoardingWindow(bool enabled, Bounds enemyBounds)
     {
         canBoardEnemyTrain = enabled;
         enemyTrainRoofBounds = enemyBounds;
 
-        // Si se acabaron los 10 segundos y el jugador seguÌa en el tren enemigo, regresarlo al tren propio
         if (!enabled && currentZone == TrainDeckZone.EnemyTrainBoarding)
         {
             currentZone = TrainDeckZone.PlayerTrain;

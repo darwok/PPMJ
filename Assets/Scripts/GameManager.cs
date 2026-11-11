@@ -1,40 +1,41 @@
-using System.Collections.Generic;
+ï»¿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
     [Header("Referencias de Sistemas")]
-    [Tooltip("Puedes arrastrar aquí el componente CardDeckManager (o ponerlo en este mismo objeto _GameManager)")]
     public CardDeckManager cardDeckManager;
+    [Tooltip("Opcional (en StartMenu): arrastra aquÃ­ el botÃ³n de 'Continuar Partida' para oscurecerlo/desactivarlo si no hay datos guardados")]
+    public Button continueSavedGameButton;
 
     [Header("Lista de Vagones Activos (Ordenados de Punta a Cola)")]
     public List<WagonController> activeWagons = new List<WagonController>();
     public Transform currentTarget;
 
-    [Header("Progreso de la Ruta (Vertical Slice: 3 a 5 min)")]
+    [Header("Progreso de la Ruta (Vertical Slice)")]
     [SerializeField] private float routeDurationSeconds = 180f;
     private float currentRouteTime = 0f;
     private bool gameEnded = false;
+    private bool showingInlineLevelSummary = false;
     public bool isPaused = false;
 
     [Header("Balance de Potencia de la Locomotora (Tecla Q)")]
-    [Tooltip("False = Modo Aceleración (tren más rápido), True = Sobrecarga Defensiva (torretas disparan más rápido)")]
     public bool isWeaponOverchargeActive = false;
     [SerializeField] private float speedMultiplierWhenAccelerating = 1.35f;
     [SerializeField] private float turretFireRateMultiplierWhenOvercharged = 1.5f;
 
-    [Header("Perks Globales del Tren (Recompensas por Abordar Tren Enemigo)")]
-    [Tooltip("Bonificación acumulable de velocidad de ataque (+0.2, etc.)")]
+    [Header("Bonos Adicionales en Partida")]
     public float globalAttackSpeedBonus = 0f;
-    [Tooltip("Bonificación acumulable de rango de ataque para las torretas")]
     public float globalAttackRangeBonus = 0f;
 
     [Header("Nombres de Escenas")]
     [SerializeField] private string startMenuScene = "StartMenu";
     [SerializeField] private string gameScene = "GameScene";
+    [SerializeField] private string levelSummaryScene = "LevelSummary";
     [SerializeField] private string victoryScene = "Victory";
     [SerializeField] private string gameOverScene = "GameOver";
 
@@ -61,6 +62,9 @@ public class GameManager : MonoBehaviour
             cardDeckManager = FindFirstObjectByType<CardDeckManager>();
         }
 
+        // Si estamos en StartMenu y hay un botÃ³n de Continuar asignado, activarlo o desactivarlo (oscurecido) segÃºn haya partida guardada
+        RefreshContinueButtonState();
+
         if (activeWagons.Count == 0)
         {
             activeWagons.AddRange(FindObjectsByType<WagonController>(FindObjectsSortMode.InstanceID));
@@ -68,11 +72,23 @@ public class GameManager : MonoBehaviour
         UpdatePrimaryTarget();
     }
 
+    public void RefreshContinueButtonState()
+    {
+        if (continueSavedGameButton != null)
+        {
+            bool hasSave = RunProgressionData.HasSavedRun();
+            continueSavedGameButton.interactable = hasSave;
+
+            ColorBlock cb = continueSavedGameButton.colors;
+            cb.disabledColor = new Color(0.25f, 0.25f, 0.25f, 0.55f);
+            continueSavedGameButton.colors = cb;
+        }
+    }
+
     void Update()
     {
-        if (gameEnded) return;
+        if (gameEnded || showingInlineLevelSummary) return;
 
-        // Tecla ESC para Pausar / Reanudar la partida en cualquier momento
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             TogglePause();
@@ -80,15 +96,13 @@ public class GameManager : MonoBehaviour
 
         if (isPaused) return;
 
-        // Alternar modo de energía de la locomotora con la tecla Q
         if (Input.GetKeyDown(KeyCode.Q))
         {
             isWeaponOverchargeActive = !isWeaponOverchargeActive;
-            string modeName = isWeaponOverchargeActive ? "SOBRECARGA DE TORRETAS" : "ACELERACIÓN DE LOCOMOTORA";
-            Debug.Log($"[Locomotora] Modo de energía cambiado a: {modeName}");
+            string modeName = isWeaponOverchargeActive ? "SOBRECARGA DE TORRETAS" : "ACELERACIÃ“N DE LOCOMOTORA";
+            Debug.Log($"[Locomotora] Modo de energÃ­a cambiado a: {modeName}");
         }
 
-        // Tecla G para desacoplar voluntariamente el último vagón de carga
         if (Input.GetKeyDown(KeyCode.G))
         {
             DetachLastCargoWagon();
@@ -99,7 +113,7 @@ public class GameManager : MonoBehaviour
 
         if (currentRouteTime >= routeDurationSeconds)
         {
-            TriggerVictory();
+            CompleteZoneAndOpenSummary();
         }
     }
 
@@ -129,7 +143,6 @@ public class GameManager : MonoBehaviour
     {
         globalAttackSpeedBonus += extraAttackSpeed;
         globalAttackRangeBonus += extraAttackRange;
-        Debug.Log($"[Perk Recolectado] Nuevo bono global -> Attack Speed: +{globalAttackSpeedBonus:F2}, Range: +{globalAttackRangeBonus:F1}");
     }
 
     public void RegisterWagon(WagonController wagon)
@@ -183,12 +196,7 @@ public class GameManager : MonoBehaviour
 
         if (cargoCount > 1 && leftmostCargoWagon != null)
         {
-            Debug.Log($"[Player] Desacoplando voluntariamente el último vagón: {leftmostCargoWagon.name}");
             leftmostCargoWagon.DestroyOrDetachWagon();
-        }
-        else
-        {
-            Debug.Log("[Player] No puedes desacoplar el último vagón de suministros.");
         }
     }
 
@@ -233,13 +241,32 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void TriggerVictory()
+    // Abre la escena intermedia de resumen de nivel/perks (o la muestra en pantalla si aÃºn no has creado el archivo LevelSummary.unity)
+    public void CompleteZoneAndOpenSummary()
     {
         if (gameEnded) return;
         gameEnded = true;
         Time.timeScale = 1f;
-        Debug.Log("¡VICTORIA! El tren llegó a la estación San Paula.");
-        SceneManager.LoadScene(victoryScene);
+
+        if (Application.CanStreamedLevelBeLoaded(levelSummaryScene))
+        {
+            SceneManager.LoadScene(levelSummaryScene);
+        }
+        else
+        {
+            // Si aÃºn no has agregado la escena LevelSummary a Build Profiles, muestra la pantalla intermedia directamente aquÃ­ sin crashear
+            showingInlineLevelSummary = true;
+            Time.timeScale = 0f;
+            if (GetComponent<LevelSummaryController>() == null)
+            {
+                gameObject.AddComponent<LevelSummaryController>();
+            }
+        }
+    }
+
+    public void TriggerVictory()
+    {
+        CompleteZoneAndOpenSummary();
     }
 
     public void TriggerGameOver()
@@ -247,11 +274,27 @@ public class GameManager : MonoBehaviour
         if (gameEnded) return;
         gameEnded = true;
         Time.timeScale = 1f;
-        Debug.Log("DERROTA: El convoy fue destruido.");
+        RunProgressionData.ClearSavedRun();
         SceneManager.LoadScene(gameOverScene);
     }
 
-    // Métodos públicos para los botones de UI en StartMenu, Pausa, Victory y GameOver
+    // Inicia una partida nueva limpia desde Zona 1 (para el botÃ³n "Nueva Partida / Jugar" en StartMenu)
+    public void StartNewGameFromMenu()
+    {
+        Time.timeScale = 1f;
+        RunProgressionData.StartNewRun();
+        SceneManager.LoadScene(gameScene);
+    }
+
+    // ContinÃºa la partida guardada (para el botÃ³n "Continuar Partida" en StartMenu)
+    public void ContinueSavedGameFromMenu()
+    {
+        if (!RunProgressionData.HasSavedRun()) return;
+        Time.timeScale = 1f;
+        RunProgressionData.LoadFromDisk();
+        SceneManager.LoadScene(gameScene);
+    }
+
     public void LoadGameScene()
     {
         Time.timeScale = 1f;
@@ -267,11 +310,42 @@ public class GameManager : MonoBehaviour
     public void QuitGame()
     {
         Time.timeScale = 1f;
-        Debug.Log("Saliendo del juego...");
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
 #else
         Application.Quit();
 #endif
+    }
+
+    // Si estamos en la escena StartMenu y aÃºn no creaste el botÃ³n UI de Continuar, dibuja el botÃ³n automÃ¡ticamente (oscurecido si no hay datos guardados)
+    void OnGUI()
+    {
+        if (SceneManager.GetActiveScene().name != startMenuScene || continueSavedGameButton != null)
+            return;
+
+        bool hasSave = RunProgressionData.HasSavedRun();
+        GUI.enabled = hasSave;
+
+        GUIStyle btnStyle = new GUIStyle(GUI.skin.button)
+        {
+            fontSize = 20,
+            fontStyle = FontStyle.Bold
+        };
+
+        float bw = 380f;
+        float bh = 58f;
+        float bx = (Screen.width - bw) * 0.5f;
+        float by = Screen.height * 0.72f;
+
+        string label = hasSave
+            ? $"â–¶ Continuar Partida (Zona {RunProgressionData.State.currentZoneLevel})"
+            : "ðŸ”’ Continuar Partida (Sin datos guardados)";
+
+        if (GUI.Button(new Rect(bx, by, bw, bh), label, btnStyle))
+        {
+            ContinueSavedGameFromMenu();
+        }
+
+        GUI.enabled = true;
     }
 }

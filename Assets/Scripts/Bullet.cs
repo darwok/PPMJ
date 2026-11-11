@@ -12,6 +12,7 @@ public class Bullet : MonoBehaviour
     private bool isAreaClusterBullet;
     private float areaExplosionRadius;
     private int shrapnelCount = 8;
+    private float knockbackForce = 0f;
 
     private Vector3 defaultLocalScale;
     private bool scaleRecorded;
@@ -54,7 +55,8 @@ public class Bullet : MonoBehaviour
         float explosionRadius = 4.5f,
         float scaleMultiplier = 1f,
         float customLifetime = -1f,
-        EnemyFSM homingTarget = null)
+        EnemyFSM homingTarget = null,
+        float customKnockbackForce = 0f)
     {
         if (prefab == null)
             prefab = GetOrCreateFallbackPrefab();
@@ -107,8 +109,9 @@ public class Bullet : MonoBehaviour
         bulletInstance.isAreaClusterBullet = isAreaCluster;
         bulletInstance.areaExplosionRadius = explosionRadius;
         bulletInstance.sourcePrefab = prefab;
+        bulletInstance.knockbackForce = customKnockbackForce;
 
-        if (customDamage > 0f)
+        if (customDamage >= 0f)
             bulletInstance.SetDamage(customDamage);
 
         BulletTrack tracker = bulletInstance.GetComponent<BulletTrack>();
@@ -117,7 +120,7 @@ public class Bullet : MonoBehaviour
             tracker = bulletInstance.gameObject.AddComponent<BulletTrack>();
 
         if (tracker != null)
-            tracker.TrackTarget(homingTarget.transform);
+            tracker.TrackTarget(homingTarget != null ? homingTarget.transform : null);
 
         if (!bulletInstance.gameObject.activeSelf)
             bulletInstance.gameObject.SetActive(true);
@@ -223,9 +226,14 @@ public class Bullet : MonoBehaviour
         if (enemy == null)
             return false;
 
+        if (knockbackForce > 0f)
+        {
+            enemy.ApplyKnockback(transform.forward, knockbackForce);
+        }
+
         if (isAreaClusterBullet)
             DetonateAreaCluster(enemy.GetTargetCenter());
-        else
+        else if (damage > 0f)
             enemy.TakeDamage(damage);
 
         ReturnToPool();
@@ -283,6 +291,7 @@ public class Bullet : MonoBehaviour
     private void ReturnToPool()
     {
         isAreaClusterBullet = false;
+        knockbackForce = 0f;
 
         BulletTrack tracker = GetComponent<BulletTrack>();
         if (tracker != null)

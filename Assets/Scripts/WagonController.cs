@@ -9,16 +9,15 @@ public class WagonController : MonoBehaviour
     [SerializeField] private float currentHealth;
 
     [Header("Alineación Automática en Z")]
-    [Tooltip("Fuerza que el vagón y su malla hija PisoVagon queden centrados en Z = 0")]
     [SerializeField] private float targetZPosition = 0f;
 
     [Header("Ajuste de Altura de Torretas en el Inspector")]
-    [Tooltip("Modifica este valor en el Inspector (incluso en Play Mode) para subir o bajar la altura Y de las torretas sobre el vagón")]
+    [Tooltip("Modifica este valor en el Inspector (incluso en Play Mode) para subir o bajar la altura Y de las torretas sobre el techo del vagón")]
     public float turretHeightOffset = 1.6f;
 
     [Header("2 Nodos de Colocación de Torretas en el Techo (Izquierdo y Derecho)")]
     public Transform[] turretSlots = new Transform[2];
-    private Turret[] installedTurrets = new Turret[2];
+    private Component[] installedTurrets = new Component[2];
 
     public bool IsLocomotive => isLocomotive;
     public float CurrentHealth => currentHealth;
@@ -26,10 +25,13 @@ public class WagonController : MonoBehaviour
 
     void Awake()
     {
+        // Aplicar el Perk de +Vida Máxima únicamente a los vagones nuevos que se instancien
+        float bonusHp = RunProgressionData.GetExtraMaxHealthForNewWagon();
+        maxHealth += bonusHp;
         currentHealth = maxHealth;
-        installedTurrets = new Turret[2];
 
-        // Solo es locomotora si su nombre contiene "locomot" o "ejemplo"
+        installedTurrets = new Component[2];
+
         if (name.ToLower().Contains("locomot") || name.ToLower().Contains("ejemplo"))
         {
             isLocomotive = true;
@@ -60,7 +62,6 @@ public class WagonController : MonoBehaviour
         isLocomotive = false;
     }
 
-    // Asegura que tanto el objeto padre como su hijo PisoVagon estén alineados en Z = 0 sin el desfase de -3.42
     public void AlignChildMeshToZ(float targetZ)
     {
         Vector3 p = transform.position;
@@ -69,12 +70,17 @@ public class WagonController : MonoBehaviour
 
         foreach (Transform child in transform)
         {
-            if (child.GetComponent<TurretSlotMarker>() != null || child.GetComponent<Turret>() != null)
-                continue;
-
-            Vector3 lp = child.localPosition;
-            if (Mathf.Abs(lp.z) > 0.01f)
+            if (child.GetComponent<TurretSlotMarker>() != null ||
+                child.GetComponent<Turret>() != null ||
+                child.GetComponent<TurretFlow>() != null)
             {
+                continue;
+            }
+
+            // Solo recentrar en Z el objeto raíz del modelo si tenía el desfase antiguo (-3.42), sin mover los 4 pilares de las esquinas
+            if (Mathf.Abs(child.localPosition.z) > 2.8f)
+            {
+                Vector3 lp = child.localPosition;
                 lp.z = 0f;
                 child.localPosition = lp;
             }
@@ -104,8 +110,12 @@ public class WagonController : MonoBehaviour
         foreach (MeshFilter mf in meshFilters)
         {
             if (mf == null || mf.sharedMesh == null) continue;
-            if (mf.GetComponent<TurretSlotMarker>() != null || mf.GetComponentInParent<Turret>() != null)
+            if (mf.GetComponent<TurretSlotMarker>() != null ||
+                mf.GetComponentInParent<Turret>() != null ||
+                mf.GetComponentInParent<TurretFlow>() != null)
+            {
                 continue;
+            }
 
             Transform t = mf.transform;
             Bounds localB = mf.sharedMesh.bounds;
@@ -138,7 +148,7 @@ public class WagonController : MonoBehaviour
         }
 
         turretSlots = new Transform[2];
-        installedTurrets = new Turret[2];
+        installedTurrets = new Component[2];
 
         Bounds b = GetWorldBounds();
         float quarterLengthX = b.extents.x * 0.5f;
@@ -151,13 +161,13 @@ public class WagonController : MonoBehaviour
             padObj.name = $"TurretSlot_{i + 1}";
             padObj.transform.position = new Vector3(xPositions[i], roofTopY, b.center.z);
             padObj.transform.rotation = Quaternion.identity;
-            padObj.transform.localScale = new Vector3(b.size.x * 0.38f, 0.15f, b.size.z * 0.7f);
+            padObj.transform.localScale = new Vector3(b.size.x * 0.36f, 0.12f, b.size.z * 0.65f);
             padObj.transform.SetParent(transform, true);
 
             Renderer padRenderer = padObj.GetComponent<Renderer>();
             if (padRenderer != null)
             {
-                padRenderer.material.color = new Color(0.22f, 0.28f, 0.34f, 1f);
+                padRenderer.material.color = new Color(0.22f, 0.28f, 0.34f, 0.6f);
             }
 
             BoxCollider col = padObj.GetComponent<BoxCollider>();
@@ -193,14 +203,20 @@ public class WagonController : MonoBehaviour
         Transform slotTransform = turretSlots[slotIndex];
         Vector3 spawnPos = slotTransform.position + Vector3.up * turretHeightOffset;
         GameObject newTurretObj = Instantiate(turretPrefab, spawnPos, Quaternion.identity, transform);
-        Turret turretComp = newTurretObj.GetComponent<Turret>();
+
+        // Soportar tanto Turret.cs como TurretFlow.cs (lanzallamas y manguera de agua de Iñaki)
+        Component turretComp = newTurretObj.GetComponent<Turret>();
+        if (turretComp == null)
+        {
+            turretComp = newTurretObj.GetComponent<TurretFlow>();
+        }
         if (turretComp == null)
         {
             turretComp = newTurretObj.AddComponent<Turret>();
         }
-        installedTurrets[slotIndex] = turretComp;
 
-        Debug.Log($"[Vagón {name}] Torreta {turretPrefab.name} colocada en el espacio {slotIndex + 1}/2 (Altura Y Offset: {turretHeightOffset}).");
+        installedTurrets[slotIndex] = turretComp;
+        Debug.Log($"[Vagón {name}] Torreta {turretPrefab.name} colocada en el techo (Espacio {slotIndex + 1}/2).");
         return true;
     }
 
@@ -242,7 +258,7 @@ public class WagonController : MonoBehaviour
                     if (w != null && w != this)
                     {
                         Bounds targetBounds = w.GetWorldBounds();
-                        player.transform.position = new Vector3(targetBounds.center.x, targetBounds.max.y + 1.2f, targetBounds.center.z);
+                        player.transform.position = new Vector3(targetBounds.center.x, targetBounds.min.y + 1.15f, targetBounds.center.z);
                         break;
                     }
                 }

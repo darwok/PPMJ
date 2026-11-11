@@ -2,7 +2,13 @@ using UnityEngine;
 
 public class TurretFlow : MonoBehaviour
 {
-    [Header("Atributos del lanzallamas")]
+    [Header("Tipo de Torreta de Flujo (Lanzallamas o Manguera de Agua)")]
+    [SerializeField] private EnumCardType turretType = EnumCardType.Turret4_Lanzallamas;
+    [Tooltip("Activa esta casilla en el prefab de la Torreta 5 de Agua para que empuje enemigos sin hacer daño")]
+    [SerializeField] private bool isWaterHoseKnockbackOnly = false;
+    [SerializeField] private float baseWaterKnockbackForce = 1.2f;
+
+    [Header("Atributos Base")]
     [SerializeField] private float range = 18f;
     [SerializeField] private float fireRate = 0.08f;
     [SerializeField] private float damage = 3f;
@@ -10,18 +16,34 @@ public class TurretFlow : MonoBehaviour
     [SerializeField] private GameObject bulletPrefab;
     [SerializeField] private Transform firePoint;
 
+    private float effectiveRange;
+    private float effectiveFireRate;
+    private float effectiveDamage;
+    private float effectiveKnockback;
     private float nextFireTime;
 
     private void Start()
     {
-        if (bulletPrefab == null)
+        if (name.ToLower().Contains("water") || name.ToLower().Contains("agua") || turretType == EnumCardType.Turret5_WaterHose)
         {
-            Debug.LogError(
-                "TurretFlow necesita un prefab de proyectil de llamas.",
-                this
-            );
+            turretType = EnumCardType.Turret5_WaterHose;
+            isWaterHoseKnockbackOnly = true;
+        }
 
-            enabled = false;
+        // Aplicar los Perks guardados al instanciarse esta nueva torreta
+        float speedMult = RunProgressionData.GetTotalAttackSpeedMultiplierForNewTurret(turretType);
+        effectiveFireRate = fireRate / Mathf.Max(0.1f, speedMult);
+        effectiveRange = range + RunProgressionData.GetTotalExtraRangeForNewTurret(turretType);
+
+        if (isWaterHoseKnockbackOnly)
+        {
+            effectiveDamage = 0f;
+            effectiveKnockback = RunProgressionData.GetWaterKnockbackForce(baseWaterKnockbackForce);
+        }
+        else
+        {
+            effectiveDamage = RunProgressionData.CalculateFinalDamageForNewTurret(turretType, damage);
+            effectiveKnockback = 0f;
         }
     }
 
@@ -43,11 +65,11 @@ public class TurretFlow : MonoBehaviour
             ? GameManager.Instance.GetTurretFireRateMultiplier()
             : 1f;
 
-        float effectiveInterval = fireRate / Mathf.Max(0.1f, overchargeMultiplier);
+        float currentInterval = effectiveFireRate / Mathf.Max(0.1f, overchargeMultiplier);
 
         if (Time.time >= nextFireTime)
         {
-            nextFireTime = Time.time + effectiveInterval;
+            nextFireTime = Time.time + currentInterval;
             FireAt(enemyCenter);
         }
     }
@@ -55,18 +77,13 @@ public class TurretFlow : MonoBehaviour
     private EnemyFSM FindNearestEnemy()
     {
         EnemyFSM nearest = null;
-
-        float bonusRange = GameManager.Instance != null
-            ? GameManager.Instance.globalAttackRangeBonus
-            : 0f;
-
-        float minDistance = range + bonusRange;
+        float minDistance = effectiveRange;
 
         foreach (EnemyFSM enemy in FindObjectsByType<EnemyFSM>(FindObjectsSortMode.None))
         {
             float distance = Vector3.Distance(
                 transform.position,
-                enemy.transform.position
+                enemy.GetTargetCenter()
             );
 
             if (distance <= minDistance)
@@ -90,15 +107,19 @@ public class TurretFlow : MonoBehaviour
             ? Quaternion.LookRotation(aimDirection)
             : spawn.rotation;
 
+        GameObject prefabToUse = bulletPrefab != null
+            ? bulletPrefab
+            : Bullet.GetOrCreateFallbackPrefab();
+
         Bullet.SpawnFromPool(
-            bulletPrefab,
+            prefabToUse,
             spawnPosition,
             shotRotation,
-            customDamage: damage,
+            customDamage: effectiveDamage,
             isAreaCluster: false,
             explosionRadius: 0f,
-            customLifetime: projectileLifetime
+            customLifetime: projectileLifetime,
+            customKnockbackForce: effectiveKnockback
         );
     }
 }
-

@@ -4,21 +4,45 @@ public class Turret : MonoBehaviour
 {
     [SerializeField] private EnumCardType turretType = EnumCardType.Turret2_Rapid;
 
-    [Header("Atributos de la Torreta")]
+    [Header("Atributos Base de la Torreta")]
     [SerializeField] private float range = 18f;
     [SerializeField] private float fireRate = 0.4f;
     [SerializeField] private float damage = 15f;
     [SerializeField] private bool isAreaDamage;
     [SerializeField] private float areaRadius = 4.5f;
+    [Tooltip("Fuerza de empuje en metros (usada cuando esta torreta es Turret5_WaterHose)")]
+    [SerializeField] private float baseWaterKnockbackForce = 3.5f;
     [SerializeField] private GameObject bulletPrefab;
     [SerializeField] private Transform firePoint;
 
+    // Estadísticas efectivas tras aplicar los Perks guardados al momento de colocar esta nueva torreta
+    private float effectiveRange;
+    private float effectiveFireRate;
+    private float effectiveDamage;
+    private float effectiveKnockback;
     private float nextFireTime;
 
     private void Start()
     {
         if (turretType == EnumCardType.Turret1_Area)
             isAreaDamage = true;
+
+        // Aplicar los Perks acumulados únicamente a las nuevas torretas al ser instanciadas
+        float speedMult = RunProgressionData.GetTotalAttackSpeedMultiplierForNewTurret(turretType);
+        effectiveFireRate = fireRate / Mathf.Max(0.1f, speedMult);
+        effectiveRange = range + RunProgressionData.GetTotalExtraRangeForNewTurret(turretType);
+
+        if (turretType == EnumCardType.Turret5_WaterHose)
+        {
+            // La torreta de agua no hace daño, sino que empuja a los enemigos hacia atrás
+            effectiveDamage = 0f;
+            effectiveKnockback = RunProgressionData.GetWaterKnockbackForce(baseWaterKnockbackForce);
+        }
+        else
+        {
+            effectiveDamage = RunProgressionData.CalculateFinalDamageForNewTurret(turretType, damage);
+            effectiveKnockback = 0f;
+        }
     }
 
     private void Update()
@@ -39,11 +63,11 @@ public class Turret : MonoBehaviour
             ? GameManager.Instance.GetTurretFireRateMultiplier()
             : 1f;
 
-        float effectiveInterval = fireRate / Mathf.Max(0.1f, overchargeMultiplier);
+        float currentInterval = effectiveFireRate / Mathf.Max(0.1f, overchargeMultiplier);
 
         if (Time.time >= nextFireTime)
         {
-            nextFireTime = Time.time + effectiveInterval;
+            nextFireTime = Time.time + currentInterval;
             FireAt(targetEnemy, enemyCenter);
         }
     }
@@ -51,18 +75,13 @@ public class Turret : MonoBehaviour
     private EnemyFSM FindNearestEnemy()
     {
         EnemyFSM nearest = null;
-
-        float bonusRange = GameManager.Instance != null
-            ? GameManager.Instance.globalAttackRangeBonus
-            : 0f;
-
-        float minDistance = range + bonusRange;
+        float minDistance = effectiveRange;
 
         foreach (EnemyFSM enemy in FindObjectsByType<EnemyFSM>(FindObjectsSortMode.None))
         {
             float distance = Vector3.Distance(
                 transform.position,
-                enemy.transform.position
+                enemy.GetTargetCenter()
             );
 
             if (distance <= minDistance)
@@ -100,11 +119,12 @@ public class Turret : MonoBehaviour
             prefabToUse,
             spawnPosition,
             shotRotation,
-            customDamage: damage,
+            customDamage: effectiveDamage,
             isAreaCluster: areaShot,
             explosionRadius: areaShot ? areaRadius : 0f,
             scaleMultiplier: scaleMultiplier,
-            homingTarget: target
+            homingTarget: target,
+            customKnockbackForce: effectiveKnockback
         );
     }
 }

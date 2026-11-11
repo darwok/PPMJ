@@ -548,8 +548,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMove
   speed: 7
-  roofEdgePadding: 0.45
-  playerHeightOffsetOnRoof: 1
+  interiorWallPadding: 0.55
+  walkInsideWagonFloor: 1
+  playerInteriorFloorOffsetY: 1.15
   currentZone: 0
   canBoardEnemyTrain: 0
   jumpBetweenTrainsKey: 32
@@ -2560,7 +2561,7 @@ Transform:
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
   m_LocalRotation: {x: 0.42261827, y: 0, z: 0, w: 0.9063079}
-  m_LocalPosition: {x: -8, y: 22, z: -20}
+  m_LocalPosition: {x: -8, y: 29.933464, z: -21.435335}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -8531,6 +8532,7 @@ MonoBehaviour:
   isLocomotive: 1
   maxHealth: 2000
   currentHealth: 0
+  targetZPosition: 0
   turretHeightOffset: 1.6
   turretSlots:
   - {fileID: 0}
@@ -12645,6 +12647,7 @@ MonoBehaviour:
   isLocomotive: 1
   maxHealth: 200
   currentHealth: 0
+  targetZPosition: 0
   turretHeightOffset: 1.6
   turretSlots:
   - {fileID: 0}
@@ -16370,10 +16373,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6040a72e447d75445951c256b46a66b1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemySpawnerAndTreadmill
-  enemyPrefab: {fileID: 8781618048489876503, guid: 313219ae2407a974e97200a4f0b84918, type: 3}
+  enemyTypes: []
   spawnPoints: []
-  initialSpawnInterval: 3.5
-  minSpawnInterval: 1
   scrollingProps:
   - {fileID: 1514185862}
   - {fileID: 948650751}
@@ -16431,10 +16432,12 @@ MonoBehaviour:
   - {fileID: 1388419457}
   - {fileID: 23184258}
   - {fileID: 544058703}
-  autoGenerateGreyboxPropsIfEmpty: 1
+  customNaturePropPrefabs: []
+  autoGenerateProceduralEnvironment: 1
   baseScrollSpeed: 12
   resetLimitX: -45
   respawnStartX: 45
+  enemyTrainTrackZ: 10
   floorRendererToScrollUV: {fileID: 321245425}
   uvScrollDirection: {x: -2, y: 0}
 --- !u!114 &1988640529
@@ -16450,11 +16453,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
   cardDeckManager: {fileID: 1988640531}
+  continueSavedGameButton: {fileID: 0}
   activeWagons:
   - {fileID: 1013894003}
   - {fileID: 1564159980089795168, guid: 776640f1fc96c074e949e5e6531c05c8, type: 3}
   currentTarget: {fileID: 0}
   routeDurationSeconds: 180
+  isPaused: 0
   isWeaponOverchargeActive: 0
   speedMultiplierWhenAccelerating: 2.5
   turretFireRateMultiplierWhenOvercharged: 1.5
@@ -16462,6 +16467,7 @@ MonoBehaviour:
   globalAttackRangeBonus: 0
   startMenuScene: StartMenu
   gameScene: GameScene
+  levelSummaryScene: LevelSummary
   victoryScene: Victory
   gameOverScene: GameOver
 --- !u!4 &1988640530
@@ -16493,12 +16499,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CardDeckManager
   cardDeliveryInterval: 6
   maxCardsInHand: 4
+  newWagonSpawnChance: 0.35
   currentHand: 
   turret1AreaPrefab: {fileID: 7312890356394688884, guid: d07d3414da3af1c4cb9ff4663a3ead14, type: 3}
   turret2RapidPrefab: {fileID: 2192662164640016904, guid: ef2e0cf91a8dd5a43941c5c087dfea7c, type: 3}
   turret3HeavyPrefab: {fileID: 4714853344131131188, guid: 26ccf14aeccf26449a4360e814cdd873, type: 3}
+  turret4LanzallamasPrefab: {fileID: 0}
+  turret5WaterHosePrefab: {fileID: 0}
   cargoWagonPrefab: {fileID: 8871773992570484697, guid: 776640f1fc96c074e949e5e6531c05c8, type: 3}
   couplingGapX: 0.25
+  targetWagonZ: 0
   maxCargoWagons: 3
 --- !u!1 &1994435396
 GameObject:
