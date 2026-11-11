@@ -12649,9 +12649,7 @@ MonoBehaviour:
   currentHealth: 0
   targetZPosition: 0
   turretHeightOffset: 1.6
-  turretSlots:
-  - {fileID: 0}
-  - {fileID: 0}
+  turretSlots: []
 --- !u!1 &1486180964
 GameObject:
   m_ObjectHideFlags: 0
