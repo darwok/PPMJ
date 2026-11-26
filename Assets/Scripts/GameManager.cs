@@ -3,6 +3,16 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
+[System.Serializable]
+public class TurretTuning
+{
+    [Min(0.1f)] public float fireRateMultiplier = 1f;
+    [Min(0.1f)] public float damageMultiplier = 1f;
+    [Min(0.1f)] public float rangeMultiplier = 1f;
+    [Tooltip("Relative chance of this turret card appearing (0 = never)")]
+    [Min(0f)] public float cardWeight = 1f;
+}
+
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
@@ -16,17 +26,49 @@ public class GameManager : MonoBehaviour
     public List<WagonController> activeWagons = new List<WagonController>();
     public Transform currentTarget;
 
-    [Header("Progreso de la Ruta (Vertical Slice)")]
+    // ================= BALANCE (edit these in the Inspector, even in Play Mode) =================
+
+    [Header("BALANCE - Vagones")]
+    [Min(1)] public int maxCargoWagons = 10;
+    [Min(1)] public float wagonMaxHealth = 150f;
+    [Min(1)] public float locomotiveMaxHealth = 150f;
+
+    [Header("BALANCE - Cartas")]
+    [Tooltip("Segundos entre cartas de TORRETA")]
+    [Min(0.5f)] public float turretCardInterval = 6f;
+    [Tooltip("Segundos entre cartas de NUEVO VAGÓN (pon un número enorme para desactivar)")]
+    [Min(0.5f)] public float wagonCardInterval = 15f;
+    [Range(1, 4)] public int maxCardsInHand = 4;
+    [Range(0, 4)] public int startingCards = 2;
+    public bool startingHandOnlyTurrets = false;
+
+    [Header("BALANCE - Torretas (globales)")]
+    [Min(0.1f)] public float globalFireRateMultiplier = 1f;
+    [Min(0.1f)] public float globalDamageMultiplier = 1f;
+    [Min(0.1f)] public float globalRangeMultiplier = 1f;
+    [SerializeField] private float turretFireRateMultiplierWhenOvercharged = 1.5f;
+
+    [Header("BALANCE - Torretas (por tipo)")]
+    public TurretTuning turret1Area = new TurretTuning();
+    public TurretTuning turret2Rapid = new TurretTuning();
+    public TurretTuning turret3Heavy = new TurretTuning();
+    public TurretTuning turret4Flamethrower = new TurretTuning();
+    public TurretTuning turret5WaterHose = new TurretTuning();
+
+    [Header("BALANCE - Ruta / Velocidad")]
     [SerializeField] private float routeDurationSeconds = 180f;
+    [SerializeField] private float speedMultiplierWhenAccelerating = 1.35f;
+    [SerializeField] private float speedMultiplierWhenOvercharged = 0.85f;
+
+    // ===========================================================================================
+
     private float currentRouteTime = 0f;
     private bool gameEnded = false;
     private bool showingInlineLevelSummary = false;
     public bool isPaused = false;
 
-    [Header("Balance de Potencia de la Locomotora (Tecla Q)")]
+    [Header("Modo de energía (Tecla Q)")]
     public bool isWeaponOverchargeActive = false;
-    [SerializeField] private float speedMultiplierWhenAccelerating = 1.35f;
-    [SerializeField] private float turretFireRateMultiplierWhenOvercharged = 1.5f;
 
     [Header("Bonos Adicionales en Partida")]
     public float globalAttackSpeedBonus = 0f;
@@ -38,6 +80,55 @@ public class GameManager : MonoBehaviour
     [SerializeField] private string levelSummaryScene = "LevelSummary";
     [SerializeField] private string victoryScene = "Victory";
     [SerializeField] private string gameOverScene = "GameOver";
+
+    // ---------- Balance helpers used by other scripts ----------
+
+    public TurretTuning GetTuning(EnumCardType type)
+    {
+        switch (type)
+        {
+            case EnumCardType.Turret1_Area: return turret1Area;
+            case EnumCardType.Turret2_Rapid: return turret2Rapid;
+            case EnumCardType.Turret3_Heavy: return turret3Heavy;
+            case EnumCardType.Turret4_Lanzallamas: return turret4Flamethrower;
+            case EnumCardType.Turret5_WaterHose: return turret5WaterHose;
+            default: return turret2Rapid;
+        }
+    }
+
+    // Final multipliers for a given turret type (global x per-type)
+    public float GetFireRateFor(EnumCardType type)
+    {
+        return GetTurretFireRateMultiplier() * globalFireRateMultiplier * GetTuning(type).fireRateMultiplier;
+    }
+
+    public float GetDamageFor(EnumCardType type)
+    {
+        return globalDamageMultiplier * GetTuning(type).damageMultiplier;
+    }
+
+    public float GetRangeFor(EnumCardType type)
+    {
+        return globalRangeMultiplier * GetTuning(type).rangeMultiplier;
+    }
+
+    public int CargoWagonCount
+    {
+        get
+        {
+            int count = 0;
+            foreach (WagonController w in activeWagons)
+                if (w != null && !w.IsLocomotive) count++;
+            return count;
+        }
+    }
+
+    public bool CanAddCargoWagon()
+    {
+        return CargoWagonCount < maxCargoWagons;
+    }
+
+    // ---------- Unity ----------
 
     void Awake()
     {
@@ -62,7 +153,6 @@ public class GameManager : MonoBehaviour
             cardDeckManager = FindFirstObjectByType<CardDeckManager>();
         }
 
-        // Si estamos en StartMenu y hay un botón de Continuar asignado, activarlo o desactivarlo (oscurecido) según haya partida guardada
         RefreshContinueButtonState();
 
         if (activeWagons.Count == 0)
@@ -136,7 +226,7 @@ public class GameManager : MonoBehaviour
 
     public float GetTrainScrollSpeedMultiplier()
     {
-        return isWeaponOverchargeActive ? 0.85f : speedMultiplierWhenAccelerating;
+        return isWeaponOverchargeActive ? speedMultiplierWhenOvercharged : speedMultiplierWhenAccelerating;
     }
 
     public void ApplyGlobalTrainPerk(float extraAttackSpeed, float extraAttackRange)
@@ -161,11 +251,7 @@ public class GameManager : MonoBehaviour
             activeWagons.Remove(removedWagon);
         }
 
-        int remainingCargoWagons = 0;
-        foreach (WagonController w in activeWagons)
-        {
-            if (w != null && !w.IsLocomotive) remainingCargoWagons++;
-        }
+        int remainingCargoWagons = CargoWagonCount;
 
         if (wasLocomotive || activeWagons.Count == 0 || remainingCargoWagons == 0)
         {
@@ -241,7 +327,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // Abre la escena intermedia de resumen de nivel/perks (o la muestra en pantalla si aún no has creado el archivo LevelSummary.unity)
     public void CompleteZoneAndOpenSummary()
     {
         if (gameEnded) return;
@@ -254,7 +339,6 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            // Si aún no has agregado la escena LevelSummary a Build Profiles, muestra la pantalla intermedia directamente aquí sin crashear
             showingInlineLevelSummary = true;
             Time.timeScale = 0f;
             if (GetComponent<LevelSummaryController>() == null)
@@ -278,7 +362,6 @@ public class GameManager : MonoBehaviour
         SceneManager.LoadScene(gameOverScene);
     }
 
-    // Inicia una partida nueva limpia desde Zona 1 (para el botón "Nueva Partida / Jugar" en StartMenu)
     public void StartNewGameFromMenu()
     {
         Time.timeScale = 1f;
@@ -286,7 +369,6 @@ public class GameManager : MonoBehaviour
         SceneManager.LoadScene(gameScene);
     }
 
-    // Continúa la partida guardada (para el botón "Continuar Partida" en StartMenu)
     public void ContinueSavedGameFromMenu()
     {
         if (!RunProgressionData.HasSavedRun()) return;
@@ -317,7 +399,6 @@ public class GameManager : MonoBehaviour
 #endif
     }
 
-    // Si estamos en la escena StartMenu y aún no creaste el botón UI de Continuar, dibuja el botón automáticamente (oscurecido si no hay datos guardados)
     void OnGUI()
     {
         if (SceneManager.GetActiveScene().name != startMenuScene || continueSavedGameButton != null)

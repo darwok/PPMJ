@@ -15,7 +15,6 @@ public class Turret : MonoBehaviour
     [SerializeField] private GameObject bulletPrefab;
     [SerializeField] private Transform firePoint;
 
-    // Estadísticas efectivas tras aplicar los Perks guardados al momento de colocar esta nueva torreta
     private float effectiveRange;
     private float effectiveFireRate;
     private float effectiveDamage;
@@ -27,14 +26,12 @@ public class Turret : MonoBehaviour
         if (turretType == EnumCardType.Turret1_Area)
             isAreaDamage = true;
 
-        // Aplicar los Perks acumulados únicamente a las nuevas torretas al ser instanciadas
         float speedMult = RunProgressionData.GetTotalAttackSpeedMultiplierForNewTurret(turretType);
         effectiveFireRate = fireRate / Mathf.Max(0.1f, speedMult);
         effectiveRange = range + RunProgressionData.GetTotalExtraRangeForNewTurret(turretType);
 
         if (turretType == EnumCardType.Turret5_WaterHose)
         {
-            // La torreta de agua no hace daño, sino que empuja a los enemigos hacia atrás
             effectiveDamage = 0f;
             effectiveKnockback = RunProgressionData.GetWaterKnockbackForce(baseWaterKnockbackForce);
         }
@@ -59,11 +56,11 @@ public class Turret : MonoBehaviour
         if (flatDirection.sqrMagnitude > 0.001f)
             transform.rotation = Quaternion.LookRotation(flatDirection);
 
-        float overchargeMultiplier = GameManager.Instance != null
-            ? GameManager.Instance.GetTurretFireRateMultiplier()
+        float fireRateMult = GameManager.Instance != null
+            ? GameManager.Instance.GetFireRateFor(turretType)
             : 1f;
 
-        float currentInterval = effectiveFireRate / Mathf.Max(0.1f, overchargeMultiplier);
+        float currentInterval = effectiveFireRate / Mathf.Max(0.1f, fireRateMult);
 
         if (Time.time >= nextFireTime)
         {
@@ -74,8 +71,10 @@ public class Turret : MonoBehaviour
 
     private EnemyFSM FindNearestEnemy()
     {
+        float rangeMult = GameManager.Instance != null ? GameManager.Instance.GetRangeFor(turretType) : 1f;
+
         EnemyFSM nearest = null;
-        float minDistance = effectiveRange;
+        float minDistance = effectiveRange * rangeMult;
 
         foreach (EnemyFSM enemy in FindObjectsByType<EnemyFSM>(FindObjectsSortMode.None))
         {
@@ -115,11 +114,13 @@ public class Turret : MonoBehaviour
             ? 1.85f
             : turretType == EnumCardType.Turret3_Heavy ? 1.4f : 1f;
 
+        float damageMult = GameManager.Instance != null ? GameManager.Instance.GetDamageFor(turretType) : 1f;
+
         Bullet.SpawnFromPool(
             prefabToUse,
             spawnPosition,
             shotRotation,
-            customDamage: effectiveDamage,
+            customDamage: effectiveDamage * damageMult,
             isAreaCluster: areaShot,
             explosionRadius: areaShot ? areaRadius : 0f,
             scaleMultiplier: scaleMultiplier,

@@ -425,8 +425,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMove
   speed: 7
-  roofEdgePadding: 0.45
-  playerHeightOffsetOnRoof: 1
+  interiorWallPadding: 0.55
+  walkInsideWagonFloor: 1
+  playerInteriorFloorOffsetY: 1.15
   currentZone: 0
   canBoardEnemyTrain: 0
   jumpBetweenTrainsKey: 32
@@ -4308,6 +4309,37 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 554460153}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &556534738
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 556534739}
+  m_Layer: 0
+  m_Name: EnemySpawnPoint (2)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &556534739
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 556534738}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -44.7, y: 0, z: 26.4}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &565800365
 GameObject:
   m_ObjectHideFlags: 0
@@ -11269,6 +11301,37 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1461717841}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1468774722
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1468774723}
+  m_Layer: 0
+  m_Name: EnemySpawnPoint (1)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1468774723
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1468774722}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -41.3, y: 0, z: -0.1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1482902379
 GameObject:
   m_ObjectHideFlags: 0
@@ -11908,6 +11971,37 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1569402504}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1573224097
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1573224098}
+  m_Layer: 0
+  m_Name: EnemySpawnPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1573224098
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1573224097}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -17.6, y: 0, z: -25.7}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1578823014
 GameObject:
   m_ObjectHideFlags: 0
@@ -14534,14 +14628,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemySpawnerAndTreadmill
   enemyTypes:
   - enemyPrefab: {fileID: 8781618048489876503, guid: 313219ae2407a974e97200a4f0b84918, type: 3}
-    spawnInterval: 2
-  - enemyPrefab: {fileID: 8781618048489876503, guid: 60be4afdda165a249a2672dda8fce072, type: 3}
-    spawnInterval: 8
-  - enemyPrefab: {fileID: 8781618048489876503, guid: a33d68fe7cd3e4b42b34965f4ff0d178, type: 3}
     spawnInterval: 4
+  - enemyPrefab: {fileID: 8781618048489876503, guid: 60be4afdda165a249a2672dda8fce072, type: 3}
+    spawnInterval: 10
+  - enemyPrefab: {fileID: 8781618048489876503, guid: a33d68fe7cd3e4b42b34965f4ff0d178, type: 3}
+    spawnInterval: 6
   - enemyPrefab: {fileID: 8781618048489876503, guid: 4b280d52be4b79b488eae719a8e51c3e, type: 3}
-    spawnInterval: 5
-  spawnPoints: []
+    spawnInterval: 8
+  spawnPoints:
+  - {fileID: 1573224098}
+  - {fileID: 1468774723}
+  - {fileID: 556534739}
   scrollingProps:
   - {fileID: 1514185862}
   - {fileID: 948650751}
@@ -14592,17 +14689,12 @@ MonoBehaviour:
   - {fileID: 239541008}
   - {fileID: 1870554707}
   - {fileID: 1279141311}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  autoGenerateGreyboxPropsIfEmpty: 1
+  customNaturePropPrefabs: []
+  autoGenerateProceduralEnvironment: 1
   baseScrollSpeed: 12
   resetLimitX: -45
   respawnStartX: 45
+  enemyTrainTrackZ: 10
   floorRendererToScrollUV: {fileID: 321245425}
   uvScrollDirection: {x: 1, y: 0}
 --- !u!114 &1988640529
@@ -14618,19 +14710,58 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
   cardDeckManager: {fileID: 1988640531}
+  continueSavedGameButton: {fileID: 0}
   activeWagons:
   - {fileID: 1013894003}
   - {fileID: 1564159980089795168, guid: 776640f1fc96c074e949e5e6531c05c8, type: 3}
   currentTarget: {fileID: 0}
+  maxCargoWagons: 10
+  wagonMaxHealth: 150
+  locomotiveMaxHealth: 150
+  turretCardInterval: 6
+  wagonCardInterval: 15
+  maxCardsInHand: 4
+  startingCards: 1
+  startingHandOnlyTurrets: 0
+  globalFireRateMultiplier: 1
+  globalDamageMultiplier: 1
+  globalRangeMultiplier: 1
+  turretFireRateMultiplierWhenOvercharged: 1.5
+  turret1Area:
+    fireRateMultiplier: 1
+    damageMultiplier: 1
+    rangeMultiplier: 1
+    cardWeight: 1
+  turret2Rapid:
+    fireRateMultiplier: 1
+    damageMultiplier: 1
+    rangeMultiplier: 1
+    cardWeight: 1
+  turret3Heavy:
+    fireRateMultiplier: 1
+    damageMultiplier: 1
+    rangeMultiplier: 1
+    cardWeight: 1
+  turret4Flamethrower:
+    fireRateMultiplier: 1
+    damageMultiplier: 1
+    rangeMultiplier: 1
+    cardWeight: 1
+  turret5WaterHose:
+    fireRateMultiplier: 1
+    damageMultiplier: 1
+    rangeMultiplier: 1
+    cardWeight: 1
   routeDurationSeconds: 180
+  speedMultiplierWhenAccelerating: 1.35
+  speedMultiplierWhenOvercharged: 0.85
   isPaused: 0
   isWeaponOverchargeActive: 0
-  speedMultiplierWhenAccelerating: 1.35
-  turretFireRateMultiplierWhenOvercharged: 1.5
   globalAttackSpeedBonus: 0
   globalAttackRangeBonus: 0
   startMenuScene: StartMenu
   gameScene: GameScene
+  levelSummaryScene: LevelSummary
   victoryScene: Victory
   gameOverScene: GameOver
 --- !u!4 &1988640530
@@ -14660,9 +14791,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6cd38c5f71f3e294188f3d3c84af6551, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CardDeckManager
-  cardDeliveryInterval: 6
-  maxCardsInHand: 4
-  newWagonSpawnChance: 0.35
   currentHand: 
   turret1AreaPrefab: {fileID: 7312890356394688884, guid: d07d3414da3af1c4cb9ff4663a3ead14, type: 3}
   turret2RapidPrefab: {fileID: 2192662164640016904, guid: ef2e0cf91a8dd5a43941c5c087dfea7c, type: 3}
@@ -14672,7 +14800,7 @@ MonoBehaviour:
   cargoWagonPrefab: {fileID: 8871773992570484697, guid: 776640f1fc96c074e949e5e6531c05c8, type: 3}
   couplingGapX: 0.25
   targetWagonZ: 0
-  maxCargoWagons: 5
+  enableDebugKeys: 1
 --- !u!1 &1994435396
 GameObject:
   m_ObjectHideFlags: 0
@@ -16101,3 +16229,6 @@ SceneRoots:
   - {fileID: 189134831}
   - {fileID: 730332535}
   - {fileID: 220836688}
+  - {fileID: 1573224098}
+  - {fileID: 1468774723}
+  - {fileID: 556534739}

@@ -3,12 +3,7 @@ using UnityEngine;
 
 public class CardDeckManager : MonoBehaviour
 {
-    [Header("Entrega Periódica de Cartas (Estilo Plants vs. Zombies)")]
-    [SerializeField] private float cardDeliveryInterval = 6f;
-    [SerializeField] private int maxCardsInHand = 4;
-    [Tooltip("Probabilidad (0.0 a 1.0) de que salga una carta de Nuevo Vagón")]
-    [Range(0.1f, 0.8f)]
-    [SerializeField] private float newWagonSpawnChance = 0.35f;
+    [Header("Mano actual (tiempos y probabilidades: ver BALANCE en GameManager)")]
     public List<EnumCardType> currentHand = new List<EnumCardType>();
 
     [Header("Prefabs para Instanciar con las Cartas")]
@@ -23,13 +18,21 @@ public class CardDeckManager : MonoBehaviour
     [SerializeField] private float couplingGapX = 0.25f;
     [Tooltip("Posición Z exacta donde se colocará cada vagón nuevo (0 por defecto)")]
     [SerializeField] private float targetWagonZ = 0f;
-    [Tooltip("Cantidad máxima de vagones de carga permitidos en el tren")]
-    [SerializeField] private int maxCargoWagons = 10;
+
+    [Header("Debug de pruebas")]
+    [SerializeField] private bool enableDebugKeys = true;
 
     private int selectedHandIndex = -1;
-    private float nextCardTimer = 0f;
+    private float turretCardTimer = 0f;
+    private float wagonCardTimer = 0f;
     private Camera mainCam;
     private int lastGuiButtonClickFrame = -1;
+
+    // Balance values come from GameManager (fallbacks if it is missing)
+    int MaxCargoWagons => GameManager.Instance != null ? GameManager.Instance.maxCargoWagons : 10;
+    int MaxCardsInHand => GameManager.Instance != null ? GameManager.Instance.maxCardsInHand : 4;
+    float TurretCardInterval => GameManager.Instance != null ? GameManager.Instance.turretCardInterval : 6f;
+    float WagonCardInterval => GameManager.Instance != null ? GameManager.Instance.wagonCardInterval : 15f;
 
     private readonly EnumCardType[] allTurretCards = new EnumCardType[]
     {
@@ -47,21 +50,18 @@ public class CardDeckManager : MonoBehaviour
     private GUIStyle buttonStyle;
     private GUIStyle selectedButtonStyle;
 
-    void Awake()
-    {
-        // Importante: como Unity guarda en la escena el valor antiguo del Inspector (3),
-        // forzamos que permita al menos 10 vagones para que nunca bloquee el 2do o 3er vagón nuevo
-        if (maxCargoWagons < 10)
-        {
-            maxCargoWagons = 10;
-        }
-    }
-
     void Start()
     {
         mainCam = Camera.main;
-        AddRandomCardToHand();
-        AddRandomCardToHand();
+
+        int starting = GameManager.Instance != null ? GameManager.Instance.startingCards : 2;
+        bool onlyTurrets = GameManager.Instance != null && GameManager.Instance.startingHandOnlyTurrets;
+
+        for (int i = 0; i < starting; i++)
+        {
+            if (onlyTurrets) AddRandomTurretCard();
+            else AddRandomCardToHand();
+        }
     }
 
     void Update()
@@ -69,30 +69,25 @@ public class CardDeckManager : MonoBehaviour
         if (GameManager.Instance != null && GameManager.Instance.isPaused) return;
         if (mainCam == null) mainCam = Camera.main;
 
-        // Temporizador de cinta transportadora de cartas
-        nextCardTimer += Time.deltaTime;
-        if (nextCardTimer >= cardDeliveryInterval)
+        UpdateCardTimers();
+
+        if (enableDebugKeys)
         {
-            nextCardTimer = 0f;
-            if (currentHand.Count < maxCardsInHand)
-            {
-                AddRandomCardToHand();
-            }
+            if (Input.GetKeyDown(KeyCode.F1)) currentHand.Add(EnumCardType.NewWagon);
+            if (Input.GetKeyDown(KeyCode.F2)) AddRandomTurretCard();
+            if (Input.GetKeyDown(KeyCode.F3)) { currentHand.Clear(); selectedHandIndex = -1; }
         }
 
-        // Selección de carta con fila numérica superior (1-4) o teclado numérico (Keypad 1-4)
         if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1)) SelectCard(0);
         if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2)) SelectCard(1);
         if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3)) SelectCard(2);
         if (Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4)) SelectCard(3);
 
-        // Clic derecho para cancelar selección
         if (Input.GetMouseButtonDown(1))
         {
             selectedHandIndex = -1;
         }
 
-        // Ignorar clics sobre el HUD izquierdo (900 x 270 px) o sobre el botón de cámara derecho
         bool mouseOverHud = Input.mousePosition.x < 900f && (Screen.height - Input.mousePosition.y) < 270f;
         bool mouseOverCamBtn = Input.mousePosition.x > (Screen.width - 570f) && (Screen.height - Input.mousePosition.y) < 85f;
 
@@ -102,6 +97,27 @@ public class CardDeckManager : MonoBehaviour
             {
                 TryUseSelectedCard();
             }
+        }
+    }
+
+    // Two independent conveyor belts. If the hand is full the timer waits,
+    // so the card arrives as soon as a slot frees up.
+    private void UpdateCardTimers()
+    {
+        turretCardTimer += Time.deltaTime;
+        wagonCardTimer += Time.deltaTime;
+
+        if (turretCardTimer >= TurretCardInterval && currentHand.Count < MaxCardsInHand)
+        {
+            turretCardTimer = 0f;
+            AddRandomTurretCard();
+        }
+
+        if (wagonCardTimer >= WagonCardInterval && currentHand.Count < MaxCardsInHand
+            && GetCurrentCargoWagonCount() < MaxCargoWagons)
+        {
+            wagonCardTimer = 0f;
+            currentHand.Add(EnumCardType.NewWagon);
         }
     }
 
@@ -116,18 +132,47 @@ public class CardDeckManager : MonoBehaviour
         return count;
     }
 
+    // Starting hand: mix of wagon and turret cards (faster belt = more likely)
     private void AddRandomCardToHand()
     {
-        bool canAddMoreWagons = GetCurrentCargoWagonCount() < maxCargoWagons;
+        bool canAddMoreWagons = GetCurrentCargoWagonCount() < MaxCargoWagons;
+        float wagonRate = 1f / Mathf.Max(0.1f, WagonCardInterval);
+        float turretRate = 1f / Mathf.Max(0.1f, TurretCardInterval);
+        float wagonChance = wagonRate / (wagonRate + turretRate);
 
-        if (canAddMoreWagons && Random.value < newWagonSpawnChance)
+        if (canAddMoreWagons && Random.value < wagonChance)
         {
             currentHand.Add(EnumCardType.NewWagon);
             return;
         }
+        AddRandomTurretCard();
+    }
 
-        EnumCardType randomTurret = allTurretCards[Random.Range(0, allTurretCards.Length)];
-        currentHand.Add(randomTurret);
+    private void AddRandomTurretCard()
+    {
+        float total = 0f;
+        if (GameManager.Instance != null)
+        {
+            foreach (EnumCardType t in allTurretCards)
+                total += GameManager.Instance.GetTuning(t).cardWeight;
+        }
+
+        EnumCardType picked;
+        if (total <= 0f)
+        {
+            picked = allTurretCards[Random.Range(0, allTurretCards.Length)];
+        }
+        else
+        {
+            float roll = Random.value * total;
+            picked = allTurretCards[allTurretCards.Length - 1];
+            foreach (EnumCardType t in allTurretCards)
+            {
+                roll -= GameManager.Instance.GetTuning(t).cardWeight;
+                if (roll <= 0f) { picked = t; break; }
+            }
+        }
+        currentHand.Add(picked);
     }
 
     public void SelectCard(int handIndex)
@@ -171,7 +216,6 @@ public class CardDeckManager : MonoBehaviour
         Ray ray = mainCam.ScreenPointToRay(Input.mousePosition);
         RaycastHit[] hits = Physics.RaycastAll(ray, 300f, ~0, QueryTriggerInteraction.Collide);
 
-        // 1. Prioridad: si el clic tocó directamente una de las 2 bases de torreta (TurretSlotMarker)
         foreach (RaycastHit hit in hits)
         {
             TurretSlotMarker slotMarker = hit.collider.GetComponent<TurretSlotMarker>();
@@ -186,7 +230,6 @@ public class CardDeckManager : MonoBehaviour
             }
         }
 
-        // 2. Respaldo: si el clic tocó cualquier parte del vagón (PisoVagon), detectar si fue en la mitad izquierda (0) o derecha (1)
         foreach (RaycastHit hit in hits)
         {
             WagonController wagon = hit.collider.GetComponentInParent<WagonController>();
@@ -224,7 +267,6 @@ public class CardDeckManager : MonoBehaviour
             return false;
         }
 
-        // 1. Buscar absolutamente todos los WagonController presentes en la escena (incluso si el juego está en pausa y Start() no ha corrido aún)
         WagonController[] allSceneWagons = FindObjectsByType<WagonController>(FindObjectsSortMode.None);
         foreach (WagonController sw in allSceneWagons)
         {
@@ -257,18 +299,16 @@ public class CardDeckManager : MonoBehaviour
             return false;
         }
 
-        if (currentCargoCount >= maxCargoWagons)
+        if (currentCargoCount >= MaxCargoWagons)
         {
-            Debug.Log($"[Tren] Límite máximo de vagones alcanzado ({currentCargoCount}/{maxCargoWagons}).");
+            Debug.Log($"[Tren] Límite máximo de vagones alcanzado ({currentCargoCount}/{MaxCargoWagons}).");
             return false;
         }
 
-        // 2. Medir la longitud real en X del último vagón (10 unidades por defecto) y calcular la posición exacta detrás de él
         Bounds tailBounds = leftmostWagon.GetWorldBounds();
         float wagonLengthX = Mathf.Max(8f, tailBounds.size.x);
         float stepDistanceX = wagonLengthX + couplingGapX;
 
-        // Colocar el nuevo vagón exactamente un paso completo (-10.25 en X) detrás del último vagón y en Z = targetWagonZ (0)
         Vector3 spawnPos = new Vector3(
             leftmostWagon.transform.position.x - stepDistanceX,
             leftmostWagon.transform.position.y,
@@ -359,10 +399,11 @@ public class CardDeckManager : MonoBehaviour
             string mode = GameManager.Instance.isWeaponOverchargeActive ? "SOBRECARGA TORRETAS" : "ACELERACIÓN";
 
             GUI.Label(new Rect(30, 54, 860, 26), $"Progreso a San Paula: {progress:F0}%   |   Modo [Q]: {mode}   |   Cámara [V]: Cambiar Vista", labelStyle);
-            GUI.Label(new Rect(30, 82, 860, 26), $"Sacrificar último vagón: [G]   |   Vagones de carga: {GetCurrentCargoWagonCount()}/{maxCargoWagons}   |   Pausa: [ESC]", labelStyle);
+            GUI.Label(new Rect(30, 82, 860, 26), $"Sacrificar último vagón: [G]   |   Vagones de carga: {GetCurrentCargoWagonCount()}/{MaxCargoWagons}   |   Pausa: [ESC]", labelStyle);
         }
 
-        GUI.Label(new Rect(30, 112, 860, 24), "CONTROLES: [WASD] Moverse  |  [Click Izq] Disparar  |  [X] Recargar  |  [V / Botón Der.] Vista General", controlsStyle);
+        string debugHint = enableDebugKeys ? "   |   DEBUG: [F1] +Vagón  [F2] +Torreta  [F3] Vaciar" : "";
+        GUI.Label(new Rect(30, 112, 860, 24), "CONTROLES: [WASD] Moverse  |  [Click Izq] Disparar  |  [X] Recargar  |  [V / Botón Der.] Vista General" + debugHint, controlsStyle);
         GUI.Label(new Rect(30, 140, 860, 26), "Cartas en mano (Presiona [1-4] o haz clic en el botón, luego clic en el techo del vagón):", labelStyle);
 
         for (int i = 0; i < currentHand.Count; i++)

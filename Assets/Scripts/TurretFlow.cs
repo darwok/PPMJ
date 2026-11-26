@@ -30,7 +30,6 @@ public class TurretFlow : MonoBehaviour
             isWaterHoseKnockbackOnly = true;
         }
 
-        // Aplicar los Perks guardados al instanciarse esta nueva torreta
         float speedMult = RunProgressionData.GetTotalAttackSpeedMultiplierForNewTurret(turretType);
         effectiveFireRate = fireRate / Mathf.Max(0.1f, speedMult);
         effectiveRange = range + RunProgressionData.GetTotalExtraRangeForNewTurret(turretType);
@@ -61,11 +60,11 @@ public class TurretFlow : MonoBehaviour
         if (flatDirection.sqrMagnitude > 0.001f)
             transform.rotation = Quaternion.LookRotation(flatDirection);
 
-        float overchargeMultiplier = GameManager.Instance != null
-            ? GameManager.Instance.GetTurretFireRateMultiplier()
+        float fireRateMult = GameManager.Instance != null
+            ? GameManager.Instance.GetFireRateFor(turretType)
             : 1f;
 
-        float currentInterval = effectiveFireRate / Mathf.Max(0.1f, overchargeMultiplier);
+        float currentInterval = effectiveFireRate / Mathf.Max(0.1f, fireRateMult);
 
         if (Time.time >= nextFireTime)
         {
@@ -76,8 +75,10 @@ public class TurretFlow : MonoBehaviour
 
     private EnemyFSM FindNearestEnemy()
     {
+        float rangeMult = GameManager.Instance != null ? GameManager.Instance.GetRangeFor(turretType) : 1f;
+
         EnemyFSM nearest = null;
-        float minDistance = effectiveRange;
+        float minDistance = effectiveRange * rangeMult;
 
         foreach (EnemyFSM enemy in FindObjectsByType<EnemyFSM>(FindObjectsSortMode.None))
         {
@@ -111,11 +112,13 @@ public class TurretFlow : MonoBehaviour
             ? bulletPrefab
             : Bullet.GetOrCreateFallbackPrefab();
 
+        float damageMult = GameManager.Instance != null ? GameManager.Instance.GetDamageFor(turretType) : 1f;
+
         Bullet.SpawnFromPool(
             prefabToUse,
             spawnPosition,
             shotRotation,
-            customDamage: effectiveDamage,
+            customDamage: effectiveDamage * damageMult,
             isAreaCluster: false,
             explosionRadius: 0f,
             customLifetime: projectileLifetime,
