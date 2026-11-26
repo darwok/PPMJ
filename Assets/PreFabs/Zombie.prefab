@@ -154,7 +154,7 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.5
-  m_Speed: 3.5
+  m_Speed: 10
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 120
@@ -182,5 +182,6 @@ MonoBehaviour:
   attackDamagePerSecond: 10
   fleeDistance: 8
   maxHealth: 50
+  currentHealth: 0
   currentState: 0
   target: {fileID: 0}

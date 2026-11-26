@@ -7495,6 +7495,18 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 1c38ec8f24ce63f4f9816ff50c28d787, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 1c38ec8f24ce63f4f9816ff50c28d787, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 1c38ec8f24ce63f4f9816ff50c28d787, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 1c38ec8f24ce63f4f9816ff50c28d787, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.7207735
       objectReference: {fileID: 0}
@@ -7534,6 +7546,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -5109604030079018270, guid: 1c38ec8f24ce63f4f9816ff50c28d787, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: d78ffa52ab7d5334ea0aa74d1e282148, type: 2}
     - target: {fileID: 919132149155446097, guid: 1c38ec8f24ce63f4f9816ff50c28d787, type: 3}
       propertyPath: m_Name
       value: Player
@@ -14628,13 +14644,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemySpawnerAndTreadmill
   enemyTypes:
   - enemyPrefab: {fileID: 8781618048489876503, guid: 313219ae2407a974e97200a4f0b84918, type: 3}
-    spawnInterval: 4
+    spawnInterval: 0.9
   - enemyPrefab: {fileID: 8781618048489876503, guid: 60be4afdda165a249a2672dda8fce072, type: 3}
     spawnInterval: 10
   - enemyPrefab: {fileID: 8781618048489876503, guid: a33d68fe7cd3e4b42b34965f4ff0d178, type: 3}
-    spawnInterval: 6
+    spawnInterval: 5
   - enemyPrefab: {fileID: 8781618048489876503, guid: 4b280d52be4b79b488eae719a8e51c3e, type: 3}
-    spawnInterval: 8
+    spawnInterval: 1000
   spawnPoints:
   - {fileID: 1573224098}
   - {fileID: 1468774723}
@@ -14715,43 +14731,43 @@ MonoBehaviour:
   - {fileID: 1013894003}
   - {fileID: 1564159980089795168, guid: 776640f1fc96c074e949e5e6531c05c8, type: 3}
   currentTarget: {fileID: 0}
-  maxCargoWagons: 10
+  maxCargoWagons: 1
   wagonMaxHealth: 150
   locomotiveMaxHealth: 150
   turretCardInterval: 6
-  wagonCardInterval: 15
+  wagonCardInterval: 10
   maxCardsInHand: 4
   startingCards: 1
   startingHandOnlyTurrets: 0
   globalFireRateMultiplier: 1
   globalDamageMultiplier: 1
   globalRangeMultiplier: 1
-  turretFireRateMultiplierWhenOvercharged: 1.5
+  turretFireRateMultiplierWhenOvercharged: 1
   turret1Area:
     fireRateMultiplier: 1
-    damageMultiplier: 1
+    damageMultiplier: 200
     rangeMultiplier: 1
-    cardWeight: 1
+    cardWeight: 0.2
   turret2Rapid:
-    fireRateMultiplier: 1
-    damageMultiplier: 1
+    fireRateMultiplier: 10
+    damageMultiplier: 10
     rangeMultiplier: 1
     cardWeight: 1
   turret3Heavy:
     fireRateMultiplier: 1
     damageMultiplier: 1
     rangeMultiplier: 1
-    cardWeight: 1
+    cardWeight: 0
   turret4Flamethrower:
     fireRateMultiplier: 1
     damageMultiplier: 1
     rangeMultiplier: 1
-    cardWeight: 1
+    cardWeight: 0
   turret5WaterHose:
     fireRateMultiplier: 1
     damageMultiplier: 1
     rangeMultiplier: 1
-    cardWeight: 1
+    cardWeight: 0
   routeDurationSeconds: 180
   speedMultiplierWhenAccelerating: 1.35
   speedMultiplierWhenOvercharged: 0.85

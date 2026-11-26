@@ -162,10 +162,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Turret
   turretType: 1
   range: 15
-  fireRate: 0.25
-  damage: 10
+  fireRate: 1
+  damage: 1
   isAreaDamage: 0
   areaRadius: 5
+  baseWaterKnockbackForce: 3.5
   bulletPrefab: {fileID: 2681354327679723590, guid: d436de5707ac3984fa52ebb216a33d25, type: 3}
   firePoint: {fileID: 8994632891813509835}
 --- !u!1 &2436578608838350733

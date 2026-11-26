@@ -154,8 +154,8 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.5
-  m_Speed: 3.5
-  m_Acceleration: 8
+  m_Speed: 25
+  m_Acceleration: 15
   avoidancePriority: 50
   m_AngularSpeed: 120
   m_StoppingDistance: 0
@@ -179,7 +179,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyFSM
   attackRange: 1.5
-  attackDamagePerSecond: 5
+  attackDamagePerSecond: 10
   fleeDistance: 8
   maxHealth: 30
   currentHealth: 0
