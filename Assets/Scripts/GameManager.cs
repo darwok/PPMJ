@@ -89,10 +89,7 @@ public class GameManager : MonoBehaviour
     {
         if (gameEnded || showingInlineLevelSummary) return;
 
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            TogglePause();
-        }
+        // La pausa (ESC / P) ahora la controla TimeManager con el Canvas PauseScreen
 
         if (isPaused) return;
 
@@ -119,8 +116,15 @@ public class GameManager : MonoBehaviour
 
     public void TogglePause()
     {
-        isPaused = !isPaused;
-        Time.timeScale = isPaused ? 0f : 1f;
+        if (TimeManager.Instance != null)
+        {
+            TimeManager.Instance.TogglePause(!isPaused);
+        }
+        else
+        {
+            isPaused = !isPaused;
+            Time.timeScale = isPaused ? 0f : 1f;
+        }
     }
 
     public float GetRouteProgressNormalized()

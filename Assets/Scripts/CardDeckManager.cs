@@ -338,6 +338,7 @@ public class CardDeckManager : MonoBehaviour
 
     void OnGUI()
     {
+        if (GameManager.Instance != null && GameManager.Instance.isPaused) return;
         InitStyles();
         GUIUtility.keyboardControl = 0;
 
@@ -383,28 +384,5 @@ public class CardDeckManager : MonoBehaviour
             }
         }
 
-        if (GameManager.Instance != null && GameManager.Instance.isPaused)
-        {
-            float pw = 460f;
-            float ph = 280f;
-            float px = (Screen.width - pw) * 0.5f;
-            float py = (Screen.height - ph) * 0.5f;
-
-            GUI.Box(new Rect(px, py, pw, ph), "", boxStyle);
-            GUI.Label(new Rect(px + 20, py + 20, pw - 40, 35), "JUEGO EN PAUSA", titleStyle);
-
-            if (GUI.Button(new Rect(px + 60, py + 75, pw - 120, 50), "Continuar Partida [ESC]", buttonStyle))
-            {
-                GameManager.Instance.TogglePause();
-            }
-            if (GUI.Button(new Rect(px + 60, py + 138, pw - 120, 50), "Reiniciar Nivel", buttonStyle))
-            {
-                GameManager.Instance.LoadGameScene();
-            }
-            if (GUI.Button(new Rect(px + 60, py + 201, pw - 120, 50), "Volver al Menú Principal", buttonStyle))
-            {
-                GameManager.Instance.LoadStartMenu();
-            }
-        }
     }
 }
